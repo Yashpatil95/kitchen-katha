@@ -1,6 +1,6 @@
-# Rasoi Notes
+# Kitchen Katha
 
-Rasoi Notes is a private, mobile-friendly recipe box and cooking journal. It is designed around a simple loop: save a recipe, cook it, record what changed, and decide whether it is worth keeping.
+Kitchen Katha is a private, mobile-friendly recipe box and cooking journal. It is designed around a simple loop: save a recipe, cook it, record what changed, and decide whether it is worth keeping.
 
 ## What exists
 

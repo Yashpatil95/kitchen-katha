@@ -168,9 +168,9 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Rasoi Notes home">
+        <a className="brand" href="#top" aria-label="Kitchen Katha home">
           <span className="brand-mark">र</span>
-          <span>Rasoi Notes</span>
+          <span>Kitchen Katha</span>
         </a>
         <button className="button button-small" onClick={() => openForm()}>
           <span aria-hidden="true">＋</span> Add recipe

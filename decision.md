@@ -43,3 +43,45 @@ The app can be used immediately as a private cooking journal. Photo uploads, mul
 **Reversal path**
 
 R2 can be added later for photos; an owner identifier can be added if multi-user access is needed; and ingredients can be normalised into related tables if analytics or grocery aggregation becomes a demonstrated requirement.
+
+## 2026-09-02 — Rename the product to Kitchen Katha
+
+**Context**
+
+The owner no longer wanted the Rasoi Notes name and selected Kitchen Katha after reviewing alternatives.
+
+**Options considered**
+
+Keep the existing name, rename only the on-page heading, or rename the product consistently across the interface, metadata, documentation, hosted Site and social preview.
+
+**Decision**
+
+Rename the product consistently to Kitchen Katha while preserving its existing recipe data, features, private access and visual direction.
+
+**Rationale**
+
+Kitchen Katha better expresses the personal stories and learning recorded through repeated cooking. A complete rename avoids conflicting names in browser tabs, shared links and project documentation.
+
+**Rejected alternatives**
+
+Keeping Rasoi Notes conflicts with the owner’s explicit choice. A display-only rename would leave stale branding in link previews and hosting metadata.
+
+**Trade-offs**
+
+Changing the hosted slug changes the production URL, so any saved bookmark using the old name may need to be replaced.
+
+**Implementation effect**
+
+Update the visible brand, accessible label, page and social metadata, package name, README, hosted title, hosted slug and social-preview image. No product behaviour or database schema changes.
+
+**Verification**
+
+The production build completed successfully and both recipe-input boundary tests passed on 2026-09-03. The hosted title and slug were updated, and the private deployment was prepared from the same verified source state.
+
+**Consequences**
+
+The product presents one consistent Kitchen Katha identity while keeping all existing recipes and storage intact.
+
+**Reversal path**
+
+Restore the previous text, metadata, package name, hosted title, slug and social-preview asset, then publish a new version.
