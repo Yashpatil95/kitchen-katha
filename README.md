@@ -4,7 +4,8 @@ Kitchen Katha is a private, mobile-friendly recipe box and cooking journal. It i
 
 ## What exists
 
-- Recipe cards with search, meal-type filters and cooking-stage filters
+- A stacked recipe drawer with labelled card edges and a focused single-recipe view
+- Search, meal-type filters and cooking-stage filters
 - Add, edit, view and remove flows
 - Indian-food-friendly cuisine, diet, spice, pressure-cooker and personal-note fields
 - Multiple meal types for recipes that fit more than one part of the day

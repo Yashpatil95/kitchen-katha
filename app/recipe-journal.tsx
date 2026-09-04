@@ -74,6 +74,8 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
     });
   }, [mealFilter, query, recipes, statusFilter]);
 
+  const drawerRecipes = [...filtered].reverse();
+
   const openForm = (recipe: Recipe | null = null) => {
     setEditing(recipe);
     setMessage("");
@@ -251,36 +253,54 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
           ))}
         </div>
 
-        {filtered.length ? (
-          <div className="recipe-grid">
-            {filtered.map((recipe) => {
+        {drawerRecipes.length ? (
+          <div className="recipe-drawer-shell">
+            <div className="drawer-guide">
+              <span>Recipe drawer</span>
+              <p>{drawerRecipes.length} {drawerRecipes.length === 1 ? "card" : "cards"} filed here · Tap a labelled edge to pull one out</p>
+            </div>
+            <div className="recipe-drawer" role="list">
+            {drawerRecipes.map((recipe, index) => {
               const primaryMeal = recipe.mealTypes[0] || "Dinner";
+              const isFrontCard = index === drawerRecipes.length - 1;
               return (
-                <article className="recipe-card" key={recipe.id}>
-                  <div className={`card-art art-${primaryMeal.toLowerCase()}`}>
-                    <span className="meal-emoji" aria-hidden="true">{mealEmoji[primaryMeal] || "🍽️"}</span>
-                    <span className={`status-badge status-${recipe.status}`}>{statusLabels[recipe.status]}</span>
-                    {recipe.rating && <span className="rating-badge">★ {recipe.rating}</span>}
-                  </div>
-                  <div className="card-content">
-                    <div className="card-kicker">
-                      <span>{recipe.cuisine}</span>
-                      <SpiceLevel level={recipe.spiceLevel} />
+                <article className={isFrontCard ? "recipe-card drawer-front" : "recipe-card"} key={recipe.id} role="listitem">
+                  <button className="drawer-tab" type="button" onClick={() => openRecipe(recipe)} aria-label={`Pull out ${recipe.title}`}>
+                    <span className="drawer-tab-emoji" aria-hidden="true">{mealEmoji[primaryMeal] || "🍽️"}</span>
+                    <span className="drawer-tab-copy">
+                      <strong>{recipe.title}</strong>
+                      <small>{recipe.cuisine} · {primaryMeal}</small>
+                    </span>
+                    <span className={`drawer-tab-status status-${recipe.status}`}>{statusLabels[recipe.status]}</span>
+                    <span className="drawer-tab-arrow" aria-hidden="true">↗</span>
+                  </button>
+                  <div className="drawer-card-preview" aria-hidden={!isFrontCard}>
+                    <div className={`card-art art-${primaryMeal.toLowerCase()}`}>
+                      <span className="meal-emoji" aria-hidden="true">{mealEmoji[primaryMeal] || "🍽️"}</span>
+                      <span className={`status-badge status-${recipe.status}`}>{statusLabels[recipe.status]}</span>
+                      {recipe.rating && <span className="rating-badge">★ {recipe.rating}</span>}
                     </div>
-                    <h3>{recipe.title}</h3>
-                    <p>{recipe.description || "A recipe waiting for your personal notes."}</p>
-                    <div className="card-meta">
-                      <span>◷ {recipe.prepMinutes + recipe.cookMinutes} min</span>
-                      <span>Serves {recipe.servings}</span>
-                      <span>{recipe.diet}</span>
+                    <div className="card-content">
+                      <div className="card-kicker">
+                        <span>{recipe.cuisine}</span>
+                        <SpiceLevel level={recipe.spiceLevel} />
+                      </div>
+                      <h3>{recipe.title}</h3>
+                      <p>{recipe.description || "A recipe waiting for your personal notes."}</p>
+                      <div className="card-meta">
+                        <span>◷ {recipe.prepMinutes + recipe.cookMinutes} min</span>
+                        <span>Serves {recipe.servings}</span>
+                        <span>{recipe.diet}</span>
+                      </div>
+                      <button className="text-button" tabIndex={isFrontCard ? 0 : -1} onClick={() => openRecipe(recipe)}>
+                        Pull out this recipe <span aria-hidden="true">→</span>
+                      </button>
                     </div>
-                    <button className="text-button" onClick={() => openRecipe(recipe)}>
-                      Open recipe <span aria-hidden="true">→</span>
-                    </button>
                   </div>
                 </article>
               );
             })}
+            </div>
           </div>
         ) : recipes.length ? (
           <div className="empty-state">

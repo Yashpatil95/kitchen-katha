@@ -85,3 +85,45 @@ The product presents one consistent Kitchen Katha identity while keeping all exi
 **Reversal path**
 
 Restore the previous text, metadata, package name, hosted title, slug and social-preview asset, then publish a new version.
+
+## 2026-09-04 — Present saved recipes as a card drawer
+
+**Context**
+
+The owner wanted saved recipes to feel like physical cards arranged in a drawer, with each card name still visible and only the selected recipe shown after it is pulled out.
+
+**Options considered**
+
+Keep the three-column grid, add a drag-driven carousel, or restyle the existing cards as an overlapping drawer with labelled buttons that open the existing focused recipe dialog.
+
+**Decision**
+
+Use the existing card and dialog flow. Display the filtered recipes as an overlapping stack with a visible, tappable label for every recipe; keep the newest recipe at the front and open any selected card in the existing single-recipe dialog.
+
+**Rationale**
+
+This delivers the physical recipe-drawer metaphor without changing recipe data or adding gesture libraries. Native buttons keep every visible card label usable by touch and keyboard, while the existing modal already provides the requested one-card-only reading view.
+
+**Rejected alternatives**
+
+The old grid did not match the requested drawer interaction. A carousel or drag-only interface would add code and make access harder for keyboard users without improving the core task.
+
+**Trade-offs**
+
+The drawer grows vertically as recipes are added. Search and filters remain the fast way to reduce a large stack; pagination or virtualisation should be considered only if real usage makes the drawer unwieldy.
+
+**Implementation effect**
+
+Reuse the existing recipe component and dialog, reverse the filtered display order so the newest card is at the front, add a semantic button to each exposed card edge, and implement the overlapping desktop and mobile layout in CSS. No dependency, API, schema or storage change is required.
+
+**Verification**
+
+The local route returned HTTP 200, the production build completed successfully, focused lint passed, and both recipe-input boundary checks passed on 2026-09-04.
+
+**Consequences**
+
+Kitchen Katha now presents the recipe collection as a tactile drawer while preserving search, filters, editing, removal and focused recipe reading.
+
+**Reversal path**
+
+Restore the previous grid wrapper and grid/card styles; no data migration or recipe restoration would be needed.
