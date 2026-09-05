@@ -5,6 +5,7 @@ Kitchen Katha is a private, mobile-friendly recipe box and cooking journal. It i
 ## What exists
 
 - A stacked recipe drawer with labelled card edges and a focused single-recipe view
+- A separate `/recipes` workspace, reached from the uncluttered homepage
 - Search, meal-type filters and cooking-stage filters
 - Add, edit, view and remove flows
 - Indian-food-friendly cuisine, diet, spice, pressure-cooker and personal-note fields
@@ -22,6 +23,8 @@ Use Node.js 22.13 or newer.
 npm install
 npm run dev
 ```
+
+The homepage is available at `/`; the complete recipe drawer is available at `/recipes`.
 
 The local database table is created automatically when the site first loads. Generate a migration after schema changes:
 

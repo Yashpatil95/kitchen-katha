@@ -127,3 +127,45 @@ Kitchen Katha now presents the recipe collection as a tactile drawer while prese
 **Reversal path**
 
 Restore the previous grid wrapper and grid/card styles; no data migration or recipe restoration would be needed.
+
+## 2026-09-05 — Separate the homepage from the recipe drawer and centre dialogs
+
+**Context**
+
+The owner wanted the homepage to remain a focused welcome screen, with the recipe box on another page, and wanted opened recipe cards to be presented centrally.
+
+**Options considered**
+
+Keep the single long page with an anchor link, create a dedicated recipe route while reusing the current journal component, or split the interface into multiple new components and layouts.
+
+**Decision**
+
+Keep the welcome experience at `/`, move the searchable recipe drawer to `/recipes`, reuse the existing journal component in a simple home-or-recipes mode, and explicitly centre both native dialogs within the viewport.
+
+**Rationale**
+
+A dedicated route cleanly separates welcoming from browsing while preserving one implementation for adding and viewing recipes. Native routing and dialog behaviour cover the requirement without a new dependency or duplicated feature flow.
+
+**Rejected alternatives**
+
+An anchor link would leave the recipe box on the homepage. Separate page-specific journal components would duplicate state, forms and API behaviour for no user benefit.
+
+**Trade-offs**
+
+Opening the drawer now involves one navigation step. The persistent Recipe drawer or Home link keeps that step obvious, and direct bookmarks to `/recipes` remain possible.
+
+**Implementation effect**
+
+The homepage no longer loads recipe records or renders the recipe section. A new server-rendered `/recipes` page loads the existing D1 collection. The shared header provides two-way navigation, and dialogs use fixed viewport positioning, automatic margins and internal scrolling for long content.
+
+**Verification**
+
+Both `/` and `/recipes` returned HTTP 200 locally. The production build completed successfully, focused lint passed, and both recipe-input boundary checks passed on 2026-09-05.
+
+**Consequences**
+
+Kitchen Katha has a cleaner homepage, a directly addressable recipe workspace and consistently centred add/edit and recipe-detail popups without changing stored recipes.
+
+**Reversal path**
+
+Render both sections from the homepage again, remove the `/recipes` route and restore the previous dialog positioning; no data migration would be required.

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Recipe, RecipeStatus } from "../db/recipes";
 
 const mealTypes = [
@@ -47,7 +48,7 @@ function SpiceLevel({ level }: { level: number }) {
   );
 }
 
-export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) {
+export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe[]; page: "home" | "recipes" }) {
   const [recipes, setRecipes] = useState(initialRecipes);
   const [query, setQuery] = useState("");
   const [mealFilter, setMealFilter] = useState("All");
@@ -170,25 +171,29 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Kitchen Katha home">
+        <Link className="brand" href="/" prefetch={false} aria-label="Kitchen Katha home">
           <span className="brand-mark">र</span>
           <span>Kitchen Katha</span>
-        </a>
-        <button className="button button-small" onClick={() => openForm()}>
-          <span aria-hidden="true">＋</span> Add recipe
-        </button>
+        </Link>
+        <nav className="topbar-actions" aria-label="Primary navigation">
+          <Link className="nav-link" href={page === "home" ? "/recipes" : "/"} prefetch={false}>{page === "home" ? "Recipe drawer" : "Home"}</Link>
+          <button className="button button-small" onClick={() => openForm()}>
+            <span aria-hidden="true">＋</span> Add recipe
+          </button>
+        </nav>
       </header>
 
-      <section className="hero" id="top">
+      {page === "home" ? <section className="hero" id="top">
         <div className="hero-copy">
           <p className="eyebrow"><span /> Your personal cooking journal</p>
           <h1>Cook it. Note it.<br /><em>Keep the good ones.</em></h1>
           <p className="hero-text">
             A cosy home for every dal you perfect, bake you attempt and chai blend you want to remember.
           </p>
-          <button className="button button-primary" onClick={() => openForm()}>
-            Add your first recipe <span aria-hidden="true">→</span>
-          </button>
+          <div className="hero-actions">
+            <Link className="button button-primary" href="/recipes" prefetch={false}>Open recipe drawer <span aria-hidden="true">→</span></Link>
+            <button className="button button-outline" onClick={() => openForm()}>Add a recipe</button>
+          </div>
         </div>
         <div className="hero-board" aria-label="Your recipe box at a glance">
           <div className="sun-shape" />
@@ -202,7 +207,7 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
           <div className="leaf leaf-one" />
           <div className="leaf leaf-two" />
         </div>
-      </section>
+      </section> : (
 
       <section className="recipe-section" aria-labelledby="recipe-box-title">
         <div className="section-heading">
@@ -318,6 +323,7 @@ export function RecipeJournal({ initialRecipes }: { initialRecipes: Recipe[] }) 
           </div>
         )}
       </section>
+      )}
 
       <footer>
         <span className="brand-mark">र</span>
