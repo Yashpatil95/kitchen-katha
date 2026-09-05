@@ -145,7 +145,10 @@ button { color: inherit; }
 .hero h1,
 .section-heading h2,
 .dialog-header h2,
-.detail-body h2 {
+.detail-body h2,
+.planner-hero h1,
+.planner-workspace h2,
+.evidence-heading h2 {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
   letter-spacing: -0.045em;
@@ -186,6 +189,18 @@ button { color: inherit; }
 .stats div { min-width: 94px; padding: 12px 18px; border-left: 1px solid #cfc5b4; }
 .stats strong { display: block; font-family: Georgia, serif; font-size: 26px; font-weight: 500; }
 .stats span { display: block; margin-top: 2px; color: #748078; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+
+.instagram-import { margin: 0 16px 28px; padding: 22px; border: 1px solid #dcc7b8; border-radius: 18px; background: #fff8ec; box-shadow: 0 12px 28px rgba(75, 53, 34, .06); }
+.import-copy { display: flex; align-items: center; gap: 14px; }
+.import-copy strong { display: block; font-family: Georgia, serif; font-size: 20px; }
+.import-copy p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.import-icon { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg, #8d3baa, #dd5d65 55%, #eda946); color: white; font-size: 25px; font-weight: 900; }
+.import-fields { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.import-fields .field { display: block; }
+.import-fields input { height: 46px; }
+.instagram-import details { margin-top: 12px; }
+.instagram-import summary { width: fit-content; cursor: pointer; color: var(--chilli); font-size: 12px; font-weight: 800; }
+.instagram-import details .field { margin-top: 11px; }
 
 .toolbar { display: grid; grid-template-columns: 1fr 190px; gap: 12px; margin: 0 16px 16px; }
 .search-box, .select-box { min-height: 52px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,247,.78); }
@@ -274,6 +289,9 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
 .field { display: grid; gap: 8px; color: #41554d; font-size: 12px; font-weight: 800; }
 .field-wide { grid-column: 1 / -1; }
 .field small { margin-left: 5px; color: #89918c; font-size: 10px; font-weight: 600; }
+.nutrition-heading { padding-top: 5px; border-top: 1px solid #eee4d5; }
+.nutrition-heading strong { margin-top: 15px; font-family: Georgia, serif; font-size: 18px; }
+.nutrition-heading small { margin: 0; line-height: 1.5; }
 .field input, .field select, .field textarea { width: 100%; border: 1px solid #d8cdbc; border-radius: 11px; outline: none; background: #fffdf9; color: var(--ink); font-weight: 500; }
 .field input, .field select { height: 45px; padding: 0 12px; }
 .field textarea { min-height: 78px; padding: 12px; resize: vertical; line-height: 1.5; }
@@ -314,13 +332,67 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
 .kitchen-note strong { font-family: Georgia, serif; font-size: 19px; }
 .kitchen-note p { margin: 7px 0 0; color: #52635c; white-space: pre-wrap; line-height: 1.6; }
 .last-cooked { color: #7c857f; font-size: 12px; }
+.recipe-source { margin: 22px 0 0; }
+.recipe-source a { color: var(--chilli); font-size: 13px; font-weight: 800; }
 .detail-actions { justify-content: space-between; }
 .danger-button { background: transparent; border-color: #c98576; color: #943e2c; }
+
+.planner-hero { max-width: 1240px; margin: 0 auto; padding: 72px 68px; border-radius: 36px; background: var(--paper); display: grid; grid-template-columns: 1.3fr .7fr; align-items: end; gap: 48px; box-shadow: inset 0 0 0 1px rgba(89, 79, 59, .07); }
+.planner-hero h1 { max-width: 760px; margin: 0; font-size: clamp(50px, 6vw, 76px); line-height: 1; }
+.planner-hero > div > p:last-child { max-width: 690px; margin: 25px 0 0; color: var(--ink-soft); font-size: 17px; line-height: 1.7; }
+.planner-note { padding: 22px; border-left: 4px solid var(--turmeric); background: #f7ecd0; }
+.planner-note strong { font-family: Georgia, serif; font-size: 20px; }
+.planner-note p { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.planner-workspace, .evidence-section { max-width: 1240px; margin: 0 auto; padding: 90px 28px; }
+.planner-controls { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
+.planner-controls h2, .evidence-heading h2 { margin: 0; font-size: clamp(40px, 5vw, 58px); }
+.planner-diet { width: min(240px, 100%); }
+.goal-grid { margin: 34px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.goal-card { min-height: 200px; padding: 25px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,253,247,.66); cursor: pointer; color: var(--ink); text-align: left; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; }
+.goal-card:hover { transform: translateY(-3px); }
+.goal-card.active { border-color: var(--ink); background: var(--ink); color: white; box-shadow: 0 16px 34px rgba(22,56,46,.16); }
+.goal-card > span { display: block; margin-bottom: 22px; color: var(--chilli); font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.goal-card.active > span { color: #f5bf61; }
+.goal-card strong { display: block; font-family: Georgia, serif; font-size: 27px; }
+.goal-card p { margin: 10px 0 0; opacity: .78; font-size: 13px; line-height: 1.55; }
+.plan-summary { margin: 44px 0 20px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.plan-summary > div { display: grid; gap: 4px; }
+.plan-summary strong { font-family: Georgia, serif; font-size: 24px; }
+.plan-summary span { color: var(--ink-soft); font-size: 12px; }
+.week-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.day-card { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.day-card > header { padding: 17px 20px; border-bottom: 1px solid #eadfce; background: #f4ead7; display: flex; align-items: baseline; justify-content: space-between; }
+.day-card > header span, .planned-meal > span { color: var(--chilli); font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.day-card h3 { margin: 0; font-family: Georgia, serif; font-size: 23px; }
+.day-card > div { padding: 8px 20px 13px; }
+.planned-meal { min-height: 80px; padding: 13px 0; border-bottom: 1px solid #eee5d7; display: grid; align-content: center; gap: 4px; }
+.planned-meal:last-child { border-bottom: 0; }
+.planned-meal a, .planned-meal b { width: fit-content; color: var(--ink); font-family: Georgia, serif; font-size: 17px; font-weight: 700; }
+.planned-meal a:hover { color: var(--chilli); }
+.planned-meal small { color: #76817b; font-size: 10px; }
+.planner-method { margin-top: 30px; padding: 24px; border-radius: 16px; background: var(--mint); }
+.planner-method h3 { margin: 0 0 9px; font-family: Georgia, serif; font-size: 23px; }
+.planner-method p { margin: 7px 0 0; color: #466057; font-size: 13px; line-height: 1.65; }
+.evidence-section { padding-top: 40px; }
+.evidence-heading { max-width: 780px; }
+.evidence-heading > p:last-child { color: var(--ink-soft); line-height: 1.65; }
+.evidence-grid { margin-top: 34px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.evidence-card { padding: 26px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,253,247,.72); }
+.evidence-card > span { color: var(--chilli); font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.evidence-card h3 { margin: 10px 0 9px; font-family: Georgia, serif; font-size: 23px; }
+.evidence-card p { margin: 0 0 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
+.evidence-card a, .health-guardrail a { color: var(--ink); font-size: 12px; font-weight: 850; }
+.health-guardrail { margin-top: 18px; padding: 26px; border-radius: 18px; background: #f4ead7; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.health-guardrail strong { font-family: Georgia, serif; font-size: 22px; }
+.health-guardrail p { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.health-guardrail > div:last-child { display: grid; align-content: center; gap: 10px; }
+.medical-note { padding: 18px 22px; border: 1px solid #d9a99c; border-radius: 14px; color: #713b31; font-size: 12px; font-weight: 700; line-height: 1.6; }
 
 @media (max-width: 980px) {
   .hero { margin: 0 20px; padding: 50px 44px; grid-template-columns: 1fr .7fr; }
   .hero h1 { font-size: 58px; }
   .hero-board { transform: scale(.84); transform-origin: right center; }
+  .planner-hero { margin: 0 20px; padding: 52px 44px; grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
@@ -342,6 +414,8 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
   .stats { width: 100%; }
   .stats div { flex: 1; min-width: 0; padding: 10px 12px; }
   .toolbar { grid-template-columns: 1fr; }
+  .instagram-import { margin-inline: 8px; padding: 18px; }
+  .import-fields { grid-template-columns: 1fr; }
   .recipe-drawer-shell { padding: 0 8px; }
   .drawer-guide { align-items: flex-start; flex-direction: column; gap: 4px; }
   .recipe-drawer { padding: 20px 13px 30px; }
@@ -358,6 +432,13 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
   .dialog-header h2, .detail-body h2 { font-size: 35px; }
   .detail-hero { height: 190px; }
   .detail-facts span { padding: 0 11px; }
+  .planner-hero { margin: 0 10px; padding: 45px 26px; border-radius: 25px; }
+  .planner-workspace, .evidence-section { padding: 68px 20px; }
+  .planner-controls, .plan-summary { align-items: flex-start; flex-direction: column; }
+  .planner-diet { width: 100%; }
+  .goal-grid, .week-grid, .evidence-grid, .health-guardrail { grid-template-columns: 1fr; }
+  .goal-card { min-height: auto; }
+  .topbar .brand > span:last-child { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -169,3 +169,47 @@ Kitchen Katha has a cleaner homepage, a directly addressable recipe workspace an
 **Reversal path**
 
 Render both sections from the homepage again, remove the `/recipes` route and restore the previous dialog positioning; no data migration would be required.
+
+## 2026-09-05 — Add reviewed Instagram imports and evidence-informed meal planning
+
+**Context**
+
+The owner wants to save recipes discovered on Instagram without manually reformatting each caption, and to arrange drawer recipes into balanced, weight-loss or weight-gain weeks using health properties. Because weight change is a health-related topic, the planning principles need traceable research and cautious boundaries.
+
+**Options considered**
+
+1. Scrape and immediately save any Instagram link, and use fixed personal calorie prescriptions.
+2. Require a Meta API login and professional Instagram account before any import can work.
+3. Read public caption metadata when available, offer pasted caption text when Instagram gates it, open every parsed draft for review, and rank the owner’s recipes with transparent non-clinical rules supported by primary research.
+
+**Decision**
+
+Use option 3. Add optional source URL, calories, protein and fibre per serving to the existing recipe record. The importer accepts only a secure Instagram post/reel URL, reads public metadata server-side without following redirects, or parses an owner-pasted caption, and never saves automatically. Add `/planner` with seven-day balanced, weight-loss and weight-gain arrangements, a dietary filter, plan shuffling, visible nutrition completeness, scoring explanations, safety guidance and links to eight supporting trials or systematic reviews plus WHO and NHS guidance.
+
+**Rationale**
+
+Instagram’s supported APIs require credentials and do not provide universal access to arbitrary private or login-gated posts. A public-metadata attempt plus caption fallback gives the owner a useful flow without bypassing privacy controls. Review-before-save prevents a formatting guess from becoming trusted recipe data. For meal planning, energy balance, protein, fibre, food quality, minimally processed foods and dietary adherence have stronger evidence than branding one macronutrient split as universally best; transparent ranking is safer than pretending the app can prescribe a personal diet.
+
+**Rejected alternatives**
+
+Automatic saving was rejected because captions are inconsistent and a wrong quantity or cooking step could matter. A Meta-login-only flow was rejected because it would add credentials and still not unlock arbitrary content. Personal calorie targets, promised rates of weight change and ingredient-derived nutrition estimates were rejected because the app lacks the clinical and body-composition data needed to calculate them safely.
+
+**Trade-offs**
+
+Instagram imports can fail when a post is private, login-gated or changes its metadata, so pasted captions remain necessary. The deterministic parser works best with explicit Ingredients and Method headings. The planner is only as accurate as the per-serving values the owner enters, and many saved recipes will initially have missing nutrition. Evidence for deliberate weight gain is thinner and smaller-scale than evidence for weight loss and cardiovascular dietary patterns.
+
+**Implementation effect**
+
+Extend the single D1 table by four columns and add a generated migration. Reuse the existing recipe form and save endpoint, add one SSRF-constrained Instagram import endpoint and a small caption parser, and add a client planner backed by a pure ranking function. No dependency, account, media storage, external AI service or second database is added. Three focused Node test files cover save-boundary normalisation, Instagram parsing/URL restrictions and goal-dependent planning.
+
+**Verification**
+
+On 2026-09-05 all six focused tests passed, including an end-to-end local pasted-caption request that returned a correctly structured Masala Chai draft. Focused lint passed. `/`, `/recipes` and `/planner` each returned HTTP 200 locally. The four-statement Drizzle migration was generated and inspected, and the production build completed with the homepage, recipe API, Instagram import API, recipe drawer and planner routes.
+
+**Consequences**
+
+The owner can turn a public Instagram recipe or copied caption into a reviewed drawer card, enrich recipes with basic nutrition, and produce a research-explained weekly arrangement from existing recipes. The planner clearly separates organisation from medical treatment and keeps source papers available within the site.
+
+**Reversal path**
+
+Remove the importer route and UI, planner route and ranking helper, and the four new recipe fields from future code. Existing values can be left harmlessly in D1 or removed in a separately reviewed table-rebuild migration; recipe titles, methods and journal data remain independent.

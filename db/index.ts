@@ -31,10 +31,26 @@ export async function ensureRecipeStorage() {
       ingredients TEXT NOT NULL DEFAULT '[]',
       steps TEXT NOT NULL DEFAULT '[]',
       notes TEXT NOT NULL DEFAULT '',
+      source_url TEXT NOT NULL DEFAULT '',
+      calories INTEGER,
+      protein_grams INTEGER,
+      fibre_grams INTEGER,
       last_cooked_at TEXT,
       rating INTEGER,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
+  const columns = await env.DB.prepare("PRAGMA table_info('recipes')").all<{ name: string }>();
+  const names = new Set(columns.results.map((column: { name: string }) => column.name));
+  const additions = [
+    ["source_url", "ALTER TABLE recipes ADD COLUMN source_url TEXT NOT NULL DEFAULT ''"],
+    ["calories", "ALTER TABLE recipes ADD COLUMN calories INTEGER"],
+    ["protein_grams", "ALTER TABLE recipes ADD COLUMN protein_grams INTEGER"],
+    ["fibre_grams", "ALTER TABLE recipes ADD COLUMN fibre_grams INTEGER"],
+  ];
+  for (const [name, sql] of additions) {
+    if (!names.has(name)) await env.DB.prepare(sql).run();
+  }
 }

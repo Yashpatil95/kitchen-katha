@@ -12,6 +12,10 @@ test("normalises a recipe at the save boundary", () => {
     ingredients: [" 1 cup dal ", ""],
     steps: [" Pressure cook. ", "Add tadka."],
     rating: "5",
+    sourceUrl: " https://www.instagram.com/reel/example/ ",
+    calories: "460",
+    proteinGrams: "999",
+    fibreGrams: "12",
     lastCookedAt: "2026-08-25",
   });
 
@@ -22,6 +26,10 @@ test("normalises a recipe at the save boundary", () => {
   assert.deepEqual(recipe.ingredients, ["1 cup dal"]);
   assert.equal(recipe.rating, 5);
   assert.equal(recipe.lastCookedAt, "2026-08-25");
+  assert.equal(recipe.sourceUrl, "https://www.instagram.com/reel/example/");
+  assert.equal(recipe.calories, 460);
+  assert.equal(recipe.proteinGrams, 500);
+  assert.equal(recipe.fibreGrams, 12);
 });
 
 test("rejects an incomplete recipe", () => {

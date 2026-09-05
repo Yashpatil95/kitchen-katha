@@ -21,6 +21,24 @@ const numberInRange = (value, min, max, fallback) => {
     : fallback;
 };
 
+const optionalNumberInRange = (value, min, max) =>
+  value === null || value === "" || typeof value === "undefined"
+    ? null
+    : numberInRange(value, min, max, null);
+
+const sourceUrl = (value) => {
+  const candidate = text(value, 500);
+  if (!candidate) return "";
+  let url;
+  try {
+    url = new URL(candidate);
+  } catch {
+    throw new Error("The original recipe link must start with http:// or https://.");
+  }
+  if (url.protocol === "http:" || url.protocol === "https:") return url.href;
+  throw new Error("The original recipe link must start with http:// or https://.");
+};
+
 const stringList = (value, maxItems, maxLength) =>
   Array.isArray(value)
     ? value
@@ -60,6 +78,10 @@ export function parseRecipeDraft(value) {
     ingredients,
     steps,
     notes: text(value.notes, 2000),
+    sourceUrl: sourceUrl(value.sourceUrl),
+    calories: optionalNumberInRange(value.calories, 0, 10000),
+    proteinGrams: optionalNumberInRange(value.proteinGrams, 0, 500),
+    fibreGrams: optionalNumberInRange(value.fibreGrams, 0, 200),
     lastCookedAt: /^\d{4}-\d{2}-\d{2}$/.test(lastCookedAt) ? lastCookedAt : null,
     rating:
       rawRating !== null && Number.isInteger(rawRating) && rawRating >= 1 && rawRating <= 5

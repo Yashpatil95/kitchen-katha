@@ -22,6 +22,10 @@ export type Recipe = {
   ingredients: string[];
   steps: string[];
   notes: string;
+  sourceUrl: string;
+  calories: number | null;
+  proteinGrams: number | null;
+  fibreGrams: number | null;
   lastCookedAt: string | null;
   rating: number | null;
   createdAt: string;

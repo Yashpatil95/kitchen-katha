@@ -39,3 +39,4 @@ yarn-error.log*
 /.pnpm-store/
 /outputs/
 /work/
+*.tsbuildinfo
