@@ -156,7 +156,7 @@ Opening the drawer now involves one navigation step. The persistent Recipe drawe
 
 **Implementation effect**
 
-The homepage no longer loads recipe records or renders the recipe section. A new server-rendered `/recipes` page loads the existing D1 collection. The shared header provides two-way navigation, and dialogs use fixed viewport positioning, automatic margins and internal scrolling for long content.
+The homepage no longer loads recipe records or renders the recipe section. A new server-rendered `/recipes` page loads the existing D1 collection. The shared header uses native links for reliable Vinext navigation, and dialogs use fixed viewport positioning, automatic margins and internal scrolling for long content.
 
 **Verification**
 

@@ -1,7 +1,8 @@
 "use client";
 
+/* eslint-disable @next/next/no-html-link-for-pages -- vinext's Next Link shim currently loads a second React renderer. */
+
 import { FormEvent, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import type { Recipe, RecipeStatus } from "../db/recipes";
 
 const mealTypes = [
@@ -171,12 +172,12 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   return (
     <main>
       <header className="topbar">
-        <Link className="brand" href="/" prefetch={false} aria-label="Kitchen Katha home">
+        <a className="brand" href="/" aria-label="Kitchen Katha home">
           <span className="brand-mark">र</span>
           <span>Kitchen Katha</span>
-        </Link>
+        </a>
         <nav className="topbar-actions" aria-label="Primary navigation">
-          <Link className="nav-link" href={page === "home" ? "/recipes" : "/"} prefetch={false}>{page === "home" ? "Recipe drawer" : "Home"}</Link>
+          <a className="nav-link" href={page === "home" ? "/recipes" : "/"}>{page === "home" ? "Recipe drawer" : "Home"}</a>
           <button className="button button-small" onClick={() => openForm()}>
             <span aria-hidden="true">＋</span> Add recipe
           </button>
@@ -191,7 +192,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             A cosy home for every dal you perfect, bake you attempt and chai blend you want to remember.
           </p>
           <div className="hero-actions">
-            <Link className="button button-primary" href="/recipes" prefetch={false}>Open recipe drawer <span aria-hidden="true">→</span></Link>
+            <a className="button button-primary" href="/recipes">Open recipe drawer <span aria-hidden="true">→</span></a>
             <button className="button button-outline" onClick={() => openForm()}>Add a recipe</button>
           </div>
         </div>
