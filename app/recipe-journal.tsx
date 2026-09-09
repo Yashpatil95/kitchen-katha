@@ -55,7 +55,6 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [mealFilter, setMealFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editing, setEditing] = useState<Recipe | null>(null);
-  const [imported, setImported] = useState<Partial<Recipe> | null>(null);
   const [selected, setSelected] = useState<Recipe | null>(null);
   const [busy, setBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
@@ -83,7 +82,6 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
 
   const openForm = (recipe: Recipe | null = null) => {
     setEditing(recipe);
-    setImported(null);
     setMessage("");
     formDialog.current?.showModal();
   };
@@ -92,19 +90,20 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
     event.preventDefault();
     setImportBusy(true);
     setImportMessage("");
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     try {
       const response = await fetch("/api/import-instagram", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: data.get("instagramUrl"), caption: data.get("caption") }),
+        body: JSON.stringify({ url: data.get("instagramUrl") }),
       });
-      const result = (await response.json()) as { draft?: Partial<Recipe>; warnings?: string[]; error?: string };
-      if (!response.ok || !result.draft) throw new Error(result.error || "The recipe could not be imported.");
-      setEditing(null);
-      setImported(result.draft);
-      setMessage(result.warnings?.join(" ") || "Check the imported details against the original post before saving.");
-      formDialog.current?.showModal();
+      const result = (await response.json()) as { recipe?: Recipe; alreadySaved?: boolean; error?: string };
+      if (!response.ok || !result.recipe) throw new Error(result.error || "The recipe could not be imported.");
+      if (!result.alreadySaved) setRecipes((current) => [result.recipe!, ...current]);
+      setSelected(result.recipe);
+      form.reset();
+      detailDialog.current?.showModal();
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : "The recipe could not be imported.");
     } finally {
@@ -162,7 +161,6 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       setSelected(result.recipe);
       formDialog.current?.close();
       setEditing(null);
-      setImported(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The recipe could not be saved.");
     } finally {
@@ -202,7 +200,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
     setStatusFilter("all");
   };
 
-  const formRecipe = editing ?? imported;
+  const formRecipe = editing;
 
   return (
     <main>
@@ -262,13 +260,13 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
         <form className="instagram-import" onSubmit={importRecipe}>
           <div className="import-copy">
             <span className="import-icon" aria-hidden="true">◎</span>
-            <div><strong>Import from Instagram</strong><p>Paste a public post or reel link. Kitchen Katha will organise the caption, then open it for your review.</p></div>
+            <div><strong>Add a recipe from Instagram</strong><p>Paste a public post or reel link. Kitchen Katha will extract the recipe, format it and save the finished card automatically.</p></div>
           </div>
           <div className="import-fields">
             <label className="field"><span className="sr-only">Instagram recipe link</span><input name="instagramUrl" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
-            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Reading…" : "Prepare recipe"}</button>
+            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : "Add to drawer"}</button>
           </div>
-          <details><summary>Post private or caption not loading?</summary><label className="field">Paste its recipe caption<textarea name="caption" rows={5} maxLength={20000} placeholder="Paste the ingredients and method from the caption here…" /></label></details>
+          <small className="import-limit">Works with public posts whose caption contains the ingredients and method.</small>
           {importMessage && <p className="form-error" role="alert">{importMessage}</p>}
         </form>
 
@@ -381,12 +379,12 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
         <p>Made for recipes worth repeating.</p>
       </footer>
 
-      <dialog className="recipe-dialog form-dialog" ref={formDialog} onClose={() => { setEditing(null); setImported(null); }}>
-        <form key={editing?.id ?? imported?.sourceUrl ?? "new"} onSubmit={saveRecipe}>
+      <dialog className="recipe-dialog form-dialog" ref={formDialog} onClose={() => setEditing(null)}>
+        <form key={editing?.id ?? "new"} onSubmit={saveRecipe}>
           <div className="dialog-header">
             <div>
-              <p className="eyebrow"><span /> {editing ? "Refine your notes" : imported ? "Review the Instagram import" : "A new kitchen memory"}</p>
-              <h2>{editing ? "Edit recipe" : imported ? "Check before saving" : "Add a recipe"}</h2>
+              <p className="eyebrow"><span /> {editing ? "Refine your notes" : "A new kitchen memory"}</p>
+              <h2>{editing ? "Edit recipe" : "Add a recipe"}</h2>
             </div>
             <button className="icon-button" type="button" aria-label="Close" onClick={() => formDialog.current?.close()}>×</button>
           </div>

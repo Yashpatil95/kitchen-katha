@@ -198,9 +198,7 @@ button { color: inherit; }
 .import-fields { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .import-fields .field { display: block; }
 .import-fields input { height: 46px; }
-.instagram-import details { margin-top: 12px; }
-.instagram-import summary { width: fit-content; cursor: pointer; color: var(--chilli); font-size: 12px; font-weight: 800; }
-.instagram-import details .field { margin-top: 11px; }
+.import-limit { display: block; margin-top: 10px; color: #7d867f; font-size: 11px; }
 
 .toolbar { display: grid; grid-template-columns: 1fr 190px; gap: 12px; margin: 0 16px 16px; }
 .search-box, .select-box { min-height: 52px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,247,.78); }

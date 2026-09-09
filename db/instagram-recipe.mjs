@@ -1,7 +1,7 @@
 import { MEAL_TYPES } from "./recipe-input.mjs";
 
-const INGREDIENT_HEADING = /^(ingredients?|you(?:’|'| wi)ll need|samagri|सामग्री)\s*:?️?$/i;
-const METHOD_HEADING = /^(method|directions?|instructions?|steps?|procedure|vidhi|विधि|कृती)\s*:?️?$/i;
+const INGREDIENT_HEADING = /^(ingredients?|you(?:’|'| wi)ll need|samagri|सामग्री)(?:\s+\(.*\))?$/i;
+const METHOD_HEADING = /^(method|directions?|instructions?|steps?|procedure|vidhi|विधि|कृती)(?:\s+\(.*\))?$/i;
 const IGNORE_LINE = /^(liked by|view all|more$|follow$|original audio|\d+\s+(likes?|comments?))/i;
 
 const cleanLine = (line) =>
@@ -9,6 +9,10 @@ const cleanLine = (line) =>
     .replace(/^[\s•●▪◦‣·–—*-]+/, "")
     .replace(/^\s*(?:step\s*)?\d+[.)-]\s*/i, "")
     .trim();
+
+const heading = (line) => line.replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M})]+$/gu, "").trim();
+const isIngredientHeading = (line) => INGREDIENT_HEADING.test(heading(line));
+const isMethodHeading = (line) => METHOD_HEADING.test(heading(line));
 
 const usefulLines = (caption) =>
   String(caption)
@@ -28,10 +32,43 @@ export function instagramUrl(value) {
   if (url.protocol !== "https:" || !["instagram.com", "www.instagram.com", "m.instagram.com"].includes(host)) {
     throw new Error("Only secure Instagram links can be imported.");
   }
-  if (!/^\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) {
+  const match = url.pathname.match(/^\/(?:[A-Za-z0-9._]+\/)?(p|reels?|tv)\/([A-Za-z0-9_-]+)\/?$/);
+  if (!match) {
     throw new Error("Use the link to one Instagram post or reel, not a profile or feed.");
   }
-  return `https://www.instagram.com${url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`}`;
+  const type = match[1] === "reels" ? "reel" : match[1];
+  return `https://www.instagram.com/${type}/${match[2]}/`;
+}
+
+const decodeHtml = (value) => value
+  .replace(/&#(\d+);/g, (_, number) => String.fromCodePoint(Number(number)))
+  .replace(/&#x([0-9a-f]+);/gi, (_, number) => String.fromCodePoint(Number.parseInt(number, 16)))
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;|&apos;/g, "'")
+  .replace(/&nbsp;/g, " ")
+  .replace(/&amp;/g, "&")
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">");
+
+export function captionFromInstagramHtml(html) {
+  const caption = String(html).match(/<div\s+class=["']Caption["'][^>]*>([\s\S]*?)<\/div>/i)?.[1];
+  if (caption) return decodeHtml(caption
+    .replace(/<a\b[^>]*class=["']CaptionUsername["'][^>]*>[\s\S]*?<\/a>/i, "")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, ""))
+    .replace(/^\s+/, "")
+    .trim();
+
+  const tags = String(html).match(/<meta\s+[^>]*>/gi) || [];
+  for (const tag of tags) {
+    const property = tag.match(/(?:property|name)=["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    if (!["og:description", "description"].includes(property || "")) continue;
+    const content = tag.match(/content=["']([\s\S]*?)["'](?:\s|\/?>)/i)?.[1];
+    if (!content) continue;
+    const decoded = decodeHtml(content);
+    return (decoded.match(/:\s*[“"]([\s\S]+)[”"]\s*$/)?.[1] || decoded).trim();
+  }
+  throw new Error("Instagram did not expose a readable public caption.");
 }
 
 const mealTypesFor = (text) => {
@@ -60,12 +97,12 @@ const dietFor = (text) => {
 
 export function parseInstagramCaption(caption, sourceUrl) {
   const lines = usefulLines(caption);
-  if (!lines.length) throw new Error("No recipe caption was found. Paste the caption and try again.");
+  if (!lines.length) throw new Error("No usable recipe caption was found.");
 
-  const ingredientAt = lines.findIndex((line) => INGREDIENT_HEADING.test(line));
-  const methodAt = lines.findIndex((line) => METHOD_HEADING.test(line));
+  const ingredientAt = lines.findIndex(isIngredientHeading);
+  const methodAt = lines.findIndex(isMethodHeading);
   const titleCandidates = lines.filter((line) =>
-    !INGREDIENT_HEADING.test(line) && !METHOD_HEADING.test(line) && !/^@/.test(line),
+    !isIngredientHeading(line) && !isMethodHeading(line) && !/^@/.test(line),
   );
   const title = cleanLine(titleCandidates[0] || "Instagram recipe").slice(0, 120);
   const ingredientEnd = methodAt > ingredientAt ? methodAt : lines.length;
@@ -81,8 +118,8 @@ export function parseInstagramCaption(caption, sourceUrl) {
   const fullText = lines.join(" ");
   const mealTypes = mealTypesFor(fullText);
   const warnings = [];
-  if (!ingredients.length) warnings.push("Ingredients were not clearly labelled; add them before saving.");
-  if (!steps.length) warnings.push("Method steps were not clearly labelled; add them before saving.");
+  if (!ingredients.length) warnings.push("Ingredients were not clearly labelled.");
+  if (!steps.length) warnings.push("Method steps were not clearly labelled.");
 
   return {
     draft: {
@@ -98,7 +135,7 @@ export function parseInstagramCaption(caption, sourceUrl) {
       servings: 2,
       ingredients,
       steps,
-      notes: warnings.length ? "Imported automatically. Review quantities, timings and method against the original post." : "Imported from Instagram and reviewed before saving.",
+      notes: "Automatically imported from Instagram. Check the original post if a quantity or technique is unclear.",
       sourceUrl,
       calories: null,
       proteinGrams: null,

@@ -213,3 +213,47 @@ The owner can turn a public Instagram recipe or copied caption into a reviewed d
 **Reversal path**
 
 Remove the importer route and UI, planner route and ranking helper, and the four new recipe fields from future code. Existing values can be left harmlessly in D1 or removed in a separately reviewed table-rebuild migration; recipe titles, methods and journal data remain independent.
+
+## 2026-09-09 — Make Instagram importing a one-step automatic save
+
+**Context**
+
+The owner clarified that the Instagram feature should not prepare a draft or require any manual caption entry or review. The intended interaction is one action: paste a link and receive a completed recipe card in the drawer.
+
+**Options considered**
+
+1. Keep the review form and caption fallback.
+2. Add a paid video-download, transcription, OCR and language-model pipeline.
+3. Reuse the existing public-caption parser and recipe persistence path, but make the server validate and save the extracted recipe immediately.
+
+**Decision**
+
+Use option 3. Read Instagram’s public captioned embed first, fall back to the public post metadata, require both a recognisable ingredient section and method section, save the parsed recipe through the existing validation boundary, and return the completed record. The client adds it to the drawer and opens the saved card automatically. Repeated links return the existing card instead of creating a duplicate.
+
+**Rationale**
+
+This is the shortest complete implementation of the requested zero-manual-entry flow and reuses the parser, database model and card UI already present. It does not require a new service, credential or dependency. Rejecting incomplete captions is safer than inventing quantities or cooking instructions. Instagram’s official API still requires access tokens and centres professional-account media, so public embed content is the credential-free source available to this private site.
+
+**Rejected alternatives**
+
+The review form contradicts the clarified interaction and was removed. A full video-analysis system was rejected for this change because it would require media acquisition plus external transcription, OCR and AI credentials, and it would materially expand cost, privacy and failure modes. Saving partial or guessed recipes was rejected because an apparently complete but incorrect cooking card is worse than a clear import failure.
+
+**Trade-offs**
+
+The import is fully automatic when a public caption contains a labelled ingredient list and method. It cannot extract details that exist only in a reel’s narration, frames, comments or a private/login-gated post. Instagram can change its public embed markup, so the extractor also retains a metadata fallback and has a focused HTML extraction check.
+
+**Implementation effect**
+
+Move HTML caption extraction into the existing pure parser, support current share-link shapes including plural and handle-prefixed reel URLs, and change the import endpoint to deduplicate, validate and create the recipe. Remove the imported-draft client state, caption textarea and review-dialog branch. Keep the existing manual Add recipe form unchanged. No schema, migration or dependency change is required.
+
+**Verification**
+
+On 2026-09-09 all eight focused tests passed, including current share-link normalisation and public-embed caption extraction. Focused lint passed, the recipe drawer returned HTTP 200 locally, and the production build completed with the existing five routes. The private release was then published successfully.
+
+**Consequences**
+
+For supported public recipe posts, one pasted link now produces and opens a saved recipe card with no manual copying or form completion. Unsupported or incomplete posts produce an error and leave the drawer unchanged.
+
+**Reversal path**
+
+Restore the previous draft response, imported-form state and review dialog. Stored recipes need no migration because both workflows use the same recipe table.

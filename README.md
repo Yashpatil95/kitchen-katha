@@ -14,7 +14,7 @@ Kitchen Katha is a private, mobile-friendly recipe box and cooking journal. It i
 - Ratings and last-cooked dates
 - Durable Cloudflare D1 storage
 - Responsive, keyboard-accessible dialogs and forms
-- Instagram post/reel importing with a pasted-caption fallback and a required review step
+- One-step Instagram post/reel importing that extracts and saves complete public-caption recipes automatically
 - Optional per-serving energy, protein and fibre fields on every recipe
 - An evidence-informed seven-day meal planner for balanced eating, weight loss or weight gain
 - A plain-language research library linking to the supporting trials and reviews
@@ -32,7 +32,9 @@ The homepage is available at `/`, the complete recipe drawer at `/recipes`, and 
 
 ## Instagram imports
 
-On the recipe drawer page, paste the link to one public Instagram post or reel. Kitchen Katha reads public caption metadata, sorts clearly labelled ingredients and method lines into the normal recipe form, and asks you to review everything before saving. Instagram may hide captions behind a login, make them private or change what its public page exposes; in those cases, expand the fallback and paste the caption beneath the link. The importer does not bypass privacy controls or download media.
+On the recipe drawer page, paste the link to one public Instagram post or reel and choose **Add to drawer**. Kitchen Katha reads the public embed caption, sorts its ingredients and method into the normal format, saves the recipe, and opens the finished card automatically. Repeating the same link opens the existing card instead of creating a duplicate.
+
+The post must be public and its caption must contain a recognisable ingredient list and method. Instagram links whose recipe exists only in video narration or on-screen text cannot be converted by this caption-only importer; nothing is saved when the source is incomplete. The importer does not bypass privacy controls, download media or invent missing quantities and instructions.
 
 ## Meal planning and health limits
 
@@ -55,4 +57,4 @@ node --test tests/*.test.mjs
 
 ## Current scope
 
-Kitchen Katha remains a single private recipe collection. Instagram imports use public caption metadata or text pasted by the owner; they do not use a Meta login or attempt to read private posts. Nutrition is recorded manually rather than calculated from ingredients. Photo uploads, grocery lists, saved planner histories, sharing and multi-user accounts remain deferred until real use shows which is valuable.
+Kitchen Katha remains a single private recipe collection. Instagram imports use the post’s public embed caption; they do not use a Meta login, inspect video/audio or attempt to read private posts. Nutrition is recorded manually rather than calculated from ingredients. Photo uploads, video transcription, grocery lists, saved planner histories, sharing and multi-user accounts remain deferred until real use shows which is valuable.
