@@ -257,3 +257,45 @@ For supported public recipe posts, one pasted link now produces and opens a save
 **Reversal path**
 
 Restore the previous draft response, imported-form state and review dialog. Stored recipes need no migration because both workflows use the same recipe table.
+
+## 2026-09-09 — Use the edge runtime’s supported manual redirect mode for Instagram
+
+**Context**
+
+The public reel `Db_AiWMpcF3` contained a complete caption, but Kitchen Katha reported that Instagram had not made it public. Reproducing the import through the real local route showed that the Cloudflare-compatible runtime rejected `redirect: "error"` before making any Instagram request; that redirect mode is not implemented at the edge.
+
+**Options**
+
+Keep the unsupported mode and replace the request layer, allow automatic redirect following, or use the runtime-supported manual mode and continue accepting only successful responses from the already validated Instagram URL.
+
+**Decision**
+
+Change the shared Instagram request from `redirect: "error"` to `redirect: "manual"`.
+
+**Rationale**
+
+This is the smallest root-cause fix. Manual redirect handling is supported by the deployment runtime, retains the existing trust boundary, and avoids silently following an external redirect. No parser, dependency or data-model change is needed.
+
+**Rejected alternatives**
+
+Replacing the request layer would add infrastructure for one unsupported option. Automatic redirect following was unnecessary because the canonical public caption endpoint returns a successful response directly. Adding another Instagram HTML parser fallback was also rejected after the runtime error proved that parsing had never started.
+
+**Trade-offs**
+
+A future Instagram endpoint that requires a redirect will be skipped rather than followed. The importer already tries the canonical post page next, and a future redirect can be validated explicitly if real evidence requires it.
+
+**Implementation effect**
+
+One request option changes in the existing import endpoint. The recipe parser, automatic-save flow, database and interface remain unchanged.
+
+**Verification**
+
+All eight focused tests and focused lint passed, and the production build completed. The reported reel then passed through the real import route with HTTP 201, producing the `creamy afghani chicken` card with 22 ingredient lines and 10 method steps.
+
+**Consequences**
+
+Public Instagram captions can now reach the existing extractor in the edge-compatible runtime instead of failing before the network request.
+
+**Reversal path**
+
+Restore the previous redirect option only if the hosting runtime gains support for it; no stored data or migration is involved.

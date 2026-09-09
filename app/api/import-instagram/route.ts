@@ -6,7 +6,7 @@ const publicCaption = async (url: string) => {
     try {
       const response = await fetch(candidate, {
         headers: { "user-agent": "Mozilla/5.0 (compatible; KitchenKatha/1.0)" },
-        redirect: "error",
+        redirect: "manual",
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) continue;
