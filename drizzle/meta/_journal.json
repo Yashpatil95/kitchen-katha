@@ -15,6 +15,13 @@
       "when": 1788614135153,
       "tag": "0001_rare_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790414880653,
+      "tag": "0002_freezing_roxanne_simpson",
+      "breakpoints": true
     }
   ]
 }

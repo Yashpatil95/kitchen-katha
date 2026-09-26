@@ -7,6 +7,7 @@ export const MEAL_TYPES = [
   "Drinks",
   "Desserts",
   "Sides",
+  "Other",
 ];
 
 export const STATUSES = ["want-to-try", "tried", "keep", "not-for-me"];
@@ -71,10 +72,10 @@ export function parseRecipeDraft(value) {
     cuisine: text(value.cuisine, 60) || "Indian",
     diet: text(value.diet, 40) || "Vegetarian",
     status,
-    spiceLevel: numberInRange(value.spiceLevel, 0, 3, 2),
+    spiceLevel: numberInRange(value.spiceLevel, -1, 3, 2),
     prepMinutes: numberInRange(value.prepMinutes, 0, 1440, 0),
     cookMinutes: numberInRange(value.cookMinutes, 0, 1440, 0),
-    servings: numberInRange(value.servings, 1, 100, 2),
+    servings: numberInRange(value.servings, 0, 100, 2),
     ingredients,
     steps,
     notes: text(value.notes, 2000),

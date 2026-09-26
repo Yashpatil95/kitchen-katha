@@ -1,38 +1,42 @@
-import { captionFromInstagramHtml, instagramUrl, parseInstagramCaption } from "../../../db/instagram-recipe.mjs";
-import { createRecipe, listRecipes, parseRecipeDraft } from "../../../db/recipes";
-
-const publicCaption = async (url: string) => {
-  for (const candidate of [`${url}embed/captioned/`, url]) {
-    try {
-      const response = await fetch(candidate, {
-        headers: { "user-agent": "Mozilla/5.0 (compatible; KitchenKatha/1.0)" },
-        redirect: "manual",
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) continue;
-      const length = Number(response.headers.get("content-length"));
-      if (length > 1_000_000) continue;
-      return captionFromInstagramHtml((await response.text()).slice(0, 1_000_000));
-    } catch {
-      continue;
-    }
-  }
-  throw new Error("Instagram did not make this caption public.");
-};
+import { InstagramImportError, importInstagramRecipe } from "../../../db/instagram-recipe.mjs";
+import { createImportedRecipe, findRecipeBySourceUrl } from "../../../db/recipes";
 
 export async function POST(request: Request) {
   try {
-    const payload = (await request.json()) as { url?: unknown };
-    const sourceUrl = instagramUrl(payload.url);
-    const existing = (await listRecipes()).find((recipe) => recipe.sourceUrl === sourceUrl);
-    if (existing) return Response.json({ recipe: existing, alreadySaved: true });
+    let payload: { url?: unknown; caption?: unknown };
+    try {
+      payload = await request.json() as { url?: unknown; caption?: unknown };
+    } catch {
+      throw new InstagramImportError("invalid_request", "Send an Instagram link to import.", {
+        status: 400,
+        stage: "validate",
+      });
+    }
 
-    const { draft, warnings } = parseInstagramCaption(await publicCaption(sourceUrl), sourceUrl);
-    if (warnings.length) throw new Error("The public caption does not contain a complete ingredient list and method.");
-    const recipe = await createRecipe(parseRecipeDraft(draft));
-    return Response.json({ recipe }, { status: 201 });
+    const result = await importInstagramRecipe({
+      url: payload.url,
+      caption: payload.caption,
+      findExisting: findRecipeBySourceUrl,
+      saveRecipe: createImportedRecipe,
+    });
+    return Response.json(result, { status: result.alreadySaved ? 200 : 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "This recipe could not be imported.";
-    return Response.json({ error: `${message} Nothing was saved.` }, { status: 422 });
+    const known = error instanceof InstagramImportError
+      ? error
+      : new InstagramImportError("unexpected_error", "This recipe could not be imported.", { status: 500, stage: "unknown" });
+    console.warn("Instagram import failed", { code: known.code, stage: known.stage });
+
+    const nextStep = known.canPasteCaption
+      ? " Paste the caption below instead. Nothing was saved."
+      : known.draft
+        ? " Review the highlighted fields before saving. Nothing was saved yet."
+        : " Nothing was saved.";
+    return Response.json({
+      error: `${known.message}${nextStep}`,
+      code: known.code,
+      canPasteCaption: known.canPasteCaption,
+      draft: known.draft,
+      missing: known.missing,
+    }, { status: known.status });
   }
 }

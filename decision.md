@@ -299,3 +299,47 @@ Public Instagram captions can now reach the existing extractor in the edge-compa
 **Reversal path**
 
 Restore the previous redirect option only if the hosting runtime gains support for it; no stored data or migration is involved.
+
+## 2026-09-26 — Make Instagram imports truthful, recoverable and race-safe
+
+**Context**
+
+The reported reel could be retrieved after the edge redirect fix, but the importer still treated several caption formats as incomplete, collapsed retrieval, parsing and storage failures into one response, guessed absent servings, times and diet data, discarded partial parsing work, and used a read-then-write duplicate check that could race.
+
+**Options considered**
+
+1. Add a paid scraping, transcription or language-model service for every Instagram link.
+2. Replace the importer with Meta's authenticated API.
+3. Keep the existing credential-free public-caption path, harden each stage, reuse the same parser for an owner-pasted fallback, preserve incomplete work as an editable draft, and enforce source-link uniqueness in D1.
+
+**Decision**
+
+Use option 3. Keep automatic import as the primary flow. Categorise invalid links, unavailable captions, upstream timeouts, oversized responses, incomplete captions and storage failures separately. Accept common heading and list variants, stop inferring missing recipe facts, offer a pasted-caption fallback only when retrieval fails, and open incomplete results in the existing editor with required gaps highlighted. Add a partial unique index for non-empty source links and recover the existing row after a concurrent insert conflict.
+
+**Rationale**
+
+The public caption already contains the complete reported recipe, so a new paid service or media-processing pipeline is unnecessary. Meta's supported Instagram APIs require tokens and focus on professional-account media; they are not a credential-free extractor for arbitrary public reels. Keeping one parser and one save boundary makes the automatic and fallback paths behave consistently. Database-enforced uniqueness closes the concurrency gap that an application-only lookup cannot.
+
+**Rejected alternatives**
+
+A paid scraper or AI pipeline would add credentials, cost, privacy exposure and new failure modes before caption-only evidence requires it. Meta authentication would not provide universal access to arbitrary consumer posts. Continuing to reject every partial caption would lose useful work, while saving guessed values would make the recipe card look more certain than its source.
+
+**Trade-offs**
+
+The importer remains caption-only and cannot read narration, frames, private posts or login-gated content. A pasted caption requires one manual copy when Instagram blocks server retrieval. The existing non-null numeric columns use `0` for an imported serving or time that was not stated, and `-1` for unstated spice; the interface consistently renders those sentinels as “Not stated”. A future schema cleanup can make those columns nullable if broader data work justifies a table rebuild.
+
+**Implementation effect**
+
+The existing parser now handles serving-qualified, dash-suffixed and inline section headings, bullets, numbered inline steps, emoji, extra embed classes and social tag blocks. Retrieval uses an eight-second timeout, manual redirect handling and a streamed one-megabyte limit. The route returns structured error codes without logging captions. The recipe form now supports Unknown/Not stated values and imported partial drafts. A generated partial unique-index migration protects non-empty source URLs. No dependency, external provider, authentication flow or new table was added.
+
+**Verification**
+
+On 2026-09-26 the focused suite covered realistic captions, inline and dash headings, extra HTML classes, invalid URLs, public retrieval options, gated posts, timeouts, oversized responses, partial drafts, duplicates and storage failures. The reported public reel `Db_AiWMpcF3` was fetched by the new bounded retriever and parsed into 22 ingredient lines and 9 method lines with no missing required section; absent servings remained unstated. Focused lint and a production build passed before publishing. Production save and reload verification are recorded in the release handoff.
+
+**Consequences**
+
+Supported public captions still become recipe cards in one action. Retrieval failures now offer a usable fallback, partial captions retain the information already found, missing facts remain visibly unknown, and concurrent requests cannot create duplicate imported cards.
+
+**Reversal path**
+
+Remove the fallback and partial-draft client state, restore the previous parser and route, and drop `recipes_source_url_unique` in a reviewed migration. Existing recipe rows remain compatible because no stored field was removed or reinterpreted for positive values.

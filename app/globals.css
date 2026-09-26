@@ -198,7 +198,9 @@ button { color: inherit; }
 .import-fields { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .import-fields .field { display: block; }
 .import-fields input { height: 46px; }
-.import-limit { display: block; margin-top: 10px; color: #7d867f; font-size: 11px; }
+.import-caption { margin-top: 14px; }
+.import-caption textarea { min-height: 150px; }
+.import-limit { display: block; margin-top: 10px; color: #7d867f; font-size: 12px; }
 
 .toolbar { display: grid; grid-template-columns: 1fr 190px; gap: 12px; margin: 0 16px 16px; }
 .search-box, .select-box { min-height: 52px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,247,.78); }
@@ -246,6 +248,7 @@ button { color: inherit; }
 .art-drinks { background: #5c8d82; }
 .art-desserts { background: #c67b80; }
 .art-sides { background: #768d52; }
+.art-other { background: #8b806e; }
 .meal-emoji { position: relative; z-index: 1; display: grid; place-items: center; width: 112px; height: 112px; border-radius: 50%; background: rgba(255,248,226,.22); font-size: 67px; filter: drop-shadow(0 12px 9px rgba(53, 33, 17, .17)); }
 .status-badge, .rating-badge { position: absolute; z-index: 2; top: 15px; border-radius: 999px; padding: 7px 10px; font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .status-badge { left: 15px; background: rgba(255,253,247,.9); color: var(--ink); }
@@ -258,6 +261,7 @@ button { color: inherit; }
 .spice-level { display: inline-flex; gap: 3px; }
 .spice-level i { width: 6px; height: 6px; border: 1px solid #c8b9a3; border-radius: 50%; }
 .spice-level i.hot { border-color: var(--chilli); background: var(--chilli); }
+.spice-unknown { color: #7d867f; font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .card-content h3 { min-height: 2.2em; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-family: Georgia, serif; font-size: 27px; line-height: 1.1; letter-spacing: -.025em; }
 .card-content > p { min-height: 46px; margin: 12px 0 18px; overflow: hidden; color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14px; line-height: 1.55; }
 .card-meta { min-height: 45px; padding: 13px 0; display: flex; flex-wrap: wrap; gap: 8px 14px; border-top: 1px solid #eee7da; border-bottom: 1px solid #eee7da; color: #738078; font-size: 11px; font-weight: 700; }
@@ -294,6 +298,8 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
 .field input, .field select { height: 45px; padding: 0 12px; }
 .field textarea { min-height: 78px; padding: 12px; resize: vertical; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--turmeric); box-shadow: 0 0 0 3px rgba(233, 168, 57, .17); }
+.field-missing { padding: 12px; border: 2px solid #b94f35; border-radius: 13px; background: #fff3ed; }
+.field-missing::before { content: "Needs your input"; color: #8d321f; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .check-group { margin: 0; padding: 0; border: 0; }
 .check-group legend { margin-bottom: 8px; }
 .check-group > div { display: flex; flex-wrap: wrap; gap: 7px; }

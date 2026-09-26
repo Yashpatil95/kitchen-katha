@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `recipes_source_url_unique` ON `recipes` (`source_url`) WHERE "recipes"."source_url" <> '';

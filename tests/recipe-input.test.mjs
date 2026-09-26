@@ -22,7 +22,7 @@ test("normalises a recipe at the save boundary", () => {
   assert.equal(recipe.title, "Dal Tadka");
   assert.deepEqual(recipe.mealTypes, ["Lunch"]);
   assert.equal(recipe.spiceLevel, 3);
-  assert.equal(recipe.servings, 1);
+  assert.equal(recipe.servings, 0);
   assert.deepEqual(recipe.ingredients, ["1 cup dal"]);
   assert.equal(recipe.rating, 5);
   assert.equal(recipe.lastCookedAt, "2026-08-25");

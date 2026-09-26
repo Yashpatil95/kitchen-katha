@@ -14,6 +14,7 @@ const mealTypes = [
   "Drinks",
   "Desserts",
   "Sides",
+  "Other",
 ];
 
 const statusLabels: Record<RecipeStatus, string> = {
@@ -32,7 +33,10 @@ const mealEmoji: Record<string, string> = {
   Drinks: "🫖",
   Desserts: "🍮",
   Sides: "🥣",
+  Other: "🍽️",
 };
+
+type RecipeDraft = Omit<Recipe, "id" | "createdAt" | "updatedAt">;
 
 const dateLabel = (date: string) =>
   new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(
@@ -40,6 +44,7 @@ const dateLabel = (date: string) =>
   );
 
 function SpiceLevel({ level }: { level: number }) {
+  if (level < 0) return <span className="spice-unknown">Spice not stated</span>;
   return (
     <span className="spice-level" aria-label={`${level} out of 3 spice level`}>
       {[1, 2, 3].map((dot) => (
@@ -58,6 +63,9 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [selected, setSelected] = useState<Recipe | null>(null);
   const [busy, setBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
+  const [showCaptionFallback, setShowCaptionFallback] = useState(false);
+  const [importDraft, setImportDraft] = useState<RecipeDraft | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
   const [importMessage, setImportMessage] = useState("");
   const [message, setMessage] = useState("");
   const formDialog = useRef<HTMLDialogElement>(null);
@@ -82,6 +90,8 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
 
   const openForm = (recipe: Recipe | null = null) => {
     setEditing(recipe);
+    setImportDraft(null);
+    setMissingFields([]);
     setMessage("");
     formDialog.current?.showModal();
   };
@@ -96,13 +106,32 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       const response = await fetch("/api/import-instagram", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: data.get("instagramUrl") }),
+        body: JSON.stringify({ url: data.get("instagramUrl"), caption: data.get("instagramCaption") }),
       });
-      const result = (await response.json()) as { recipe?: Recipe; alreadySaved?: boolean; error?: string };
-      if (!response.ok || !result.recipe) throw new Error(result.error || "The recipe could not be imported.");
+      const result = (await response.json()) as {
+        recipe?: Recipe;
+        alreadySaved?: boolean;
+        error?: string;
+        canPasteCaption?: boolean;
+        draft?: RecipeDraft;
+        missing?: string[];
+      };
+      if (!response.ok || !result.recipe) {
+        if (result.draft) {
+          setEditing(null);
+          setImportDraft(result.draft);
+          setMissingFields(result.missing || []);
+          setMessage(result.error || "Review the imported details before saving.");
+          formDialog.current?.showModal();
+          return;
+        }
+        setShowCaptionFallback(Boolean(result.canPasteCaption));
+        throw new Error(result.error || "The recipe could not be imported.");
+      }
       if (!result.alreadySaved) setRecipes((current) => [result.recipe!, ...current]);
       setSelected(result.recipe);
       form.reset();
+      setShowCaptionFallback(false);
       detailDialog.current?.showModal();
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : "The recipe could not be imported.");
@@ -161,6 +190,8 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       setSelected(result.recipe);
       formDialog.current?.close();
       setEditing(null);
+      setImportDraft(null);
+      setMissingFields([]);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The recipe could not be saved.");
     } finally {
@@ -200,7 +231,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
     setStatusFilter("all");
   };
 
-  const formRecipe = editing;
+  const formRecipe = editing ?? importDraft;
 
   return (
     <main>
@@ -264,9 +295,12 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           </div>
           <div className="import-fields">
             <label className="field"><span className="sr-only">Instagram recipe link</span><input name="instagramUrl" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
-            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : "Add to drawer"}</button>
+            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : showCaptionFallback ? "Create from caption" : "Add to drawer"}</button>
           </div>
-          <small className="import-limit">Works with public posts whose caption contains the ingredients and method.</small>
+          {showCaptionFallback && <label className="field import-caption">Paste the Instagram caption
+            <textarea name="instagramCaption" required rows={8} maxLength={100000} placeholder={"Recipe title\nIngredients for 2:\n…\nHow to make:\n…"} />
+          </label>}
+          <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste the caption here and the same formatter will handle it.</small>
           {importMessage && <p className="form-error" role="alert">{importMessage}</p>}
         </form>
 
@@ -314,7 +348,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </div>
             <div className="recipe-drawer" role="list">
             {drawerRecipes.map((recipe, index) => {
-              const primaryMeal = recipe.mealTypes[0] || "Dinner";
+              const primaryMeal = recipe.mealTypes[0] || "Other";
               const isFrontCard = index === drawerRecipes.length - 1;
               return (
                 <article className={isFrontCard ? "recipe-card drawer-front" : "recipe-card"} id={`recipe-${recipe.id}`} key={recipe.id} role="listitem">
@@ -341,8 +375,8 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
                       <h3>{recipe.title}</h3>
                       <p>{recipe.description || "A recipe waiting for your personal notes."}</p>
                       <div className="card-meta">
-                        <span>◷ {recipe.prepMinutes + recipe.cookMinutes} min</span>
-                        <span>Serves {recipe.servings}</span>
+                        <span>◷ {recipe.prepMinutes > 0 && recipe.cookMinutes > 0 ? `${recipe.prepMinutes + recipe.cookMinutes} min` : "Time not stated"}</span>
+                        <span>{recipe.servings > 0 ? `Serves ${recipe.servings}` : "Servings not stated"}</span>
                         <span>{recipe.diet}</span>
                         {recipe.proteinGrams !== null && <span>{recipe.proteinGrams}g protein</span>}
                       </div>
@@ -379,8 +413,8 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
         <p>Made for recipes worth repeating.</p>
       </footer>
 
-      <dialog className="recipe-dialog form-dialog" ref={formDialog} onClose={() => setEditing(null)}>
-        <form key={editing?.id ?? "new"} onSubmit={saveRecipe}>
+      <dialog className="recipe-dialog form-dialog" ref={formDialog} onClose={() => { setEditing(null); setImportDraft(null); setMissingFields([]); }}>
+        <form key={editing?.id ?? (importDraft ? `import-${importDraft.sourceUrl}` : "new")} onSubmit={saveRecipe}>
           <div className="dialog-header">
             <div>
               <p className="eyebrow"><span /> {editing ? "Refine your notes" : "A new kitchen memory"}</p>
@@ -390,7 +424,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           </div>
 
           <div className="form-grid">
-            <label className="field field-wide">Recipe name
+            <label className={`field field-wide ${missingFields.includes("title") ? "field-missing" : ""}`}>Recipe name
               <input name="title" required maxLength={120} defaultValue={formRecipe?.title} placeholder="e.g. Aai’s Sunday poha" />
             </label>
             <label className="field field-wide">Short description
@@ -414,7 +448,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </label>
             <label className="field">Diet
               <select name="diet" defaultValue={formRecipe?.diet ?? "Vegetarian"}>
-                <option>Vegetarian</option><option>Vegan</option><option>Jain</option><option>Egg</option><option>Chicken</option><option>Seafood</option><option>Mutton</option><option>Other</option>
+                <option>Unknown</option><option>Vegetarian</option><option>Vegan</option><option>Jain</option><option>Egg</option><option>Chicken</option><option>Seafood</option><option>Mutton</option><option>Other</option>
               </select>
             </label>
             <label className="field">Cooking stage
@@ -424,7 +458,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </label>
             <label className="field">Spice level
               <select name="spiceLevel" defaultValue={formRecipe?.spiceLevel ?? 2}>
-                <option value="0">No heat</option><option value="1">Mild</option><option value="2">Medium</option><option value="3">Hot</option>
+                <option value="-1">Not stated</option><option value="0">No heat</option><option value="1">Mild</option><option value="2">Medium</option><option value="3">Hot</option>
               </select>
             </label>
             <label className="field">Prep minutes
@@ -434,16 +468,17 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
               <input name="cookMinutes" type="number" min="0" max="1440" defaultValue={formRecipe?.cookMinutes ?? 25} />
             </label>
             <label className="field">Servings
-              <input name="servings" type="number" min="1" max="100" defaultValue={formRecipe?.servings ?? 2} />
+              <input name="servings" type="number" min="0" max="100" defaultValue={formRecipe?.servings ?? 2} />
+              <small>Use 0 when the source does not say.</small>
             </label>
             <label className="field">Last cooked
               <input name="lastCookedAt" type="date" defaultValue={formRecipe?.lastCookedAt ?? ""} />
             </label>
 
-            <label className="field field-wide">Ingredients <small>One per line</small>
+            <label className={`field field-wide ${missingFields.includes("ingredients") ? "field-missing" : ""}`}>Ingredients <small>One per line</small>
               <textarea name="ingredients" required rows={7} defaultValue={formRecipe?.ingredients?.join("\n")} placeholder={"1 cup toor dal\n2 tomatoes, chopped\n1 tsp cumin seeds"} />
             </label>
-            <label className="field field-wide">Method <small>One step per line</small>
+            <label className={`field field-wide ${missingFields.includes("steps") ? "field-missing" : ""}`}>Method <small>One step per line</small>
               <textarea name="steps" required rows={8} defaultValue={formRecipe?.steps?.join("\n")} placeholder={"Rinse and soak the dal for 20 minutes.\nPressure cook for 3 whistles.\nFinish with a hot cumin tadka."} />
             </label>
             <label className="field field-wide">Kitchen notes
@@ -480,7 +515,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       <dialog className="recipe-dialog detail-dialog" ref={detailDialog} onClose={() => setSelected(null)}>
         {selected && (
           <article>
-            <div className={`detail-hero art-${(selected.mealTypes[0] || "Dinner").toLowerCase()}`}>
+            <div className={`detail-hero art-${(selected.mealTypes[0] || "Other").toLowerCase()}`}>
               <span className="meal-emoji" aria-hidden="true">{mealEmoji[selected.mealTypes[0]] || "🍽️"}</span>
               <button className="icon-button light" aria-label="Close" onClick={() => detailDialog.current?.close()}>×</button>
               <span className={`status-badge status-${selected.status}`}>{statusLabels[selected.status]}</span>
@@ -490,9 +525,9 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
               <h2>{selected.title}</h2>
               {selected.description && <p className="detail-description">{selected.description}</p>}
               <div className="detail-facts">
-                <span><b>{selected.prepMinutes}</b> min prep</span>
-                <span><b>{selected.cookMinutes}</b> min cook</span>
-                <span><b>{selected.servings}</b> servings</span>
+                <span>{selected.prepMinutes > 0 ? <><b>{selected.prepMinutes}</b> min prep</> : <b>Prep not stated</b>}</span>
+                <span>{selected.cookMinutes > 0 ? <><b>{selected.cookMinutes}</b> min cook</> : <b>Cook not stated</b>}</span>
+                <span>{selected.servings > 0 ? <><b>{selected.servings}</b> servings</> : <b>Servings not stated</b>}</span>
                 {selected.calories !== null && <span><b>{selected.calories}</b> kcal</span>}
                 {selected.proteinGrams !== null && <span><b>{selected.proteinGrams}g</b> protein</span>}
                 {selected.fibreGrams !== null && <span><b>{selected.fibreGrams}g</b> fibre</span>}

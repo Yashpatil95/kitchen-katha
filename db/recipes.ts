@@ -73,6 +73,28 @@ export async function createRecipe(draft: RecipeDraft) {
   return toRecipe(row);
 }
 
+export async function findRecipeBySourceUrl(sourceUrl: string) {
+  if (!sourceUrl) return null;
+  await ensureRecipeStorage();
+  const [row] = await getDb().select().from(recipes).where(eq(recipes.sourceUrl, sourceUrl)).limit(1);
+  return row ? toRecipe(row) : null;
+}
+
+export async function createImportedRecipe(draft: RecipeDraft) {
+  await ensureRecipeStorage();
+  const existing = await findRecipeBySourceUrl(draft.sourceUrl);
+  if (existing) return { recipe: existing, alreadySaved: true };
+
+  try {
+    const [row] = await getDb().insert(recipes).values(toRow(draft)).returning();
+    return { recipe: toRecipe(row), alreadySaved: false };
+  } catch (error) {
+    const concurrent = await findRecipeBySourceUrl(draft.sourceUrl);
+    if (concurrent) return { recipe: concurrent, alreadySaved: true };
+    throw error;
+  }
+}
+
 export async function updateRecipe(id: number, draft: RecipeDraft) {
   await ensureRecipeStorage();
   const [row] = await getDb()
