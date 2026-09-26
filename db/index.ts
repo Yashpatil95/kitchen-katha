@@ -12,6 +12,11 @@ export function getDb() {
   return drizzle(env.DB, { schema });
 }
 
+export function getD1() {
+  if (!env.DB) getDb();
+  return env.DB;
+}
+
 export async function ensureRecipeStorage() {
   if (!env.DB) getDb();
 

@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { ensureRecipeStorage, getDb } from ".";
+import { ensureRecipeStorage, getD1, getDb } from ".";
 import { parseRecipeDraft, STATUSES } from "./recipe-input.mjs";
 import { recipes } from "./schema";
 
@@ -85,14 +85,40 @@ export async function createImportedRecipe(draft: RecipeDraft) {
   const existing = await findRecipeBySourceUrl(draft.sourceUrl);
   if (existing) return { recipe: existing, alreadySaved: true };
 
-  try {
-    const [row] = await getDb().insert(recipes).values(toRow(draft)).returning();
-    return { recipe: toRecipe(row), alreadySaved: false };
-  } catch (error) {
-    const concurrent = await findRecipeBySourceUrl(draft.sourceUrl);
-    if (concurrent) return { recipe: concurrent, alreadySaved: true };
-    throw error;
-  }
+  const row = toRow(draft);
+  const result = await getD1().prepare(`
+    INSERT INTO recipes (
+      title, description, meal_types, cuisine, diet, status, spice_level,
+      prep_minutes, cook_minutes, servings, ingredients, steps, notes,
+      source_url, calories, protein_grams, fibre_grams, last_cooked_at, rating
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (SELECT 1 FROM recipes WHERE source_url = ?)
+  `).bind(
+    row.title,
+    row.description,
+    row.mealTypes,
+    row.cuisine,
+    row.diet,
+    row.status,
+    row.spiceLevel,
+    row.prepMinutes,
+    row.cookMinutes,
+    row.servings,
+    row.ingredients,
+    row.steps,
+    row.notes,
+    row.sourceUrl,
+    row.calories,
+    row.proteinGrams,
+    row.fibreGrams,
+    row.lastCookedAt,
+    row.rating,
+    row.sourceUrl,
+  ).run();
+  const recipe = await findRecipeBySourceUrl(draft.sourceUrl);
+  if (!recipe) throw new Error("The imported recipe was not saved.");
+  return { recipe, alreadySaved: result.meta.changes === 0 };
 }
 
 export async function updateRecipe(id: number, draft: RecipeDraft) {

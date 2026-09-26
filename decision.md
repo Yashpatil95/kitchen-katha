@@ -314,7 +314,7 @@ The reported reel could be retrieved after the edge redirect fix, but the import
 
 **Decision**
 
-Use option 3. Keep automatic import as the primary flow. Categorise invalid links, unavailable captions, upstream timeouts, oversized responses, incomplete captions and storage failures separately. Accept common heading and list variants, stop inferring missing recipe facts, offer a pasted-caption fallback only when retrieval fails, and open incomplete results in the existing editor with required gaps highlighted. Add a partial unique index for non-empty source links and recover the existing row after a concurrent insert conflict.
+Use option 3. Keep automatic import as the primary flow. Categorise invalid links, unavailable captions, upstream timeouts, oversized responses, incomplete captions and storage failures separately. Accept common heading and list variants, stop inferring missing recipe facts, offer a pasted-caption fallback only when retrieval fails, and open incomplete results in the existing editor with required gaps highlighted. Save through one conditional D1 insert and add a partial unique index for non-empty source links as a second line of defence.
 
 **Rationale**
 
@@ -330,11 +330,11 @@ The importer remains caption-only and cannot read narration, frames, private pos
 
 **Implementation effect**
 
-The existing parser now handles serving-qualified, dash-suffixed and inline section headings, bullets, numbered inline steps, emoji, extra embed classes and social tag blocks. Retrieval uses an eight-second timeout, manual redirect handling and a streamed one-megabyte limit. The route returns structured error codes without logging captions. The recipe form now supports Unknown/Not stated values and imported partial drafts. A generated partial unique-index migration protects non-empty source URLs. No dependency, external provider, authentication flow or new table was added.
+The existing parser now handles serving-qualified, dash-suffixed and inline section headings, bullets, numbered inline steps, emoji, extra embed classes and social tag blocks. Retrieval uses an eight-second timeout, manual redirect handling and a streamed one-megabyte limit. The route returns structured error codes without logging captions. The recipe form now supports Unknown/Not stated values and imported partial drafts. One conditional `INSERT … SELECT … WHERE NOT EXISTS` makes the duplicate check and write a single database statement; a generated partial unique-index migration protects non-empty source URLs as defence in depth. No dependency, external provider, authentication flow or new table was added.
 
 **Verification**
 
-On 2026-09-26 the focused suite covered realistic captions, inline and dash headings, extra HTML classes, invalid URLs, public retrieval options, gated posts, timeouts, oversized responses, partial drafts, duplicates and storage failures. The reported public reel `Db_AiWMpcF3` was fetched by the new bounded retriever and parsed into 22 ingredient lines and 9 method lines with no missing required section; absent servings remained unstated. Focused lint and a production build passed before publishing. Production save and reload verification are recorded in the release handoff.
+On 2026-09-26 the focused suite covered realistic captions, inline and dash headings, extra HTML classes, invalid URLs, public retrieval options, gated posts, timeouts, oversized responses, partial drafts, duplicates and storage failures. The reported public reel `Db_AiWMpcF3` was fetched by the new bounded retriever and parsed into 22 ingredient lines and 9 method lines with no missing required section; absent servings remained unstated. Focused lint and a production build passed before publishing. On 2026-09-27 two simultaneous local HTTP imports of a new source both resolved to one saved row after the conditional insert replaced the application-only read/write pair. Production save, duplicate and reload verification are recorded in the release handoff.
 
 **Consequences**
 
