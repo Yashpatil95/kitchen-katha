@@ -343,3 +343,47 @@ Supported public captions still become recipe cards in one action. Retrieval fai
 **Reversal path**
 
 Remove the fallback and partial-draft client state, restore the previous parser and route, and drop `recipes_source_url_unique` in a reviewed migration. Existing recipe rows remain compatible because no stored field was removed or reinterpreted for positive values.
+
+## 2026-09-27 — Publish the source code in a public GitHub repository
+
+**Context**
+
+Kitchen Katha had a local Git history and a private Sites deployment but no GitHub remote. The owner explicitly requested a public repository while keeping the working application available on Sites.
+
+**Options considered**
+
+1. Keep the source only in the local checkout and Sites source repository.
+2. Create a private GitHub repository.
+3. Create a public GitHub repository from the existing history while leaving the deployed application and its D1 recipe data private.
+
+**Decision**
+
+Use option 3. Publish the existing `main` history as `Yashpatil95/kitchen-katha`, set it as `origin`, and keep the Sites access policy unchanged.
+
+**Rationale**
+
+This matches the requested visibility without creating a second source tree or coupling source visibility to application access. Reusing the current history preserves the implementation record and provides a normal upstream for future changes.
+
+**Rejected alternatives**
+
+Local-only source does not provide the requested GitHub repository. A private GitHub repository conflicts with the explicit public request. Copying files into a fresh repository would discard useful history and create avoidable divergence.
+
+**Trade-offs**
+
+The code and commit history become visible to anyone. The production database and owner-only Sites access remain separate. Future commits must continue to keep credentials and personal recipe data out of Git.
+
+**Implementation effect**
+
+README documentation distinguishes the public source repository from the private hosted application. No runtime code, dependency, database schema or Sites access policy changes.
+
+**Verification**
+
+Before publication, tracked files and the complete Git history were checked for credential-like filenames and common credential markers, with no matches. Publication is complete only when GitHub reports the repository as public and `origin/main` resolves to the exact local `HEAD` commit.
+
+**Consequences**
+
+Kitchen Katha can now be browsed and cloned publicly while the live recipes remain protected by the existing private Sites access policy.
+
+**Reversal path**
+
+Change the GitHub repository visibility to private or archive it, then update the README and project register. Removing the local `origin` remote is optional and does not alter the local history.

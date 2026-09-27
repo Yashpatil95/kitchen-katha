@@ -1,6 +1,6 @@
 # Kitchen Katha
 
-Kitchen Katha is a private, mobile-friendly recipe box and cooking journal. It is designed around a simple loop: save a recipe, cook it, record what changed, and decide whether it is worth keeping.
+Kitchen Katha is a mobile-friendly recipe box and cooking journal. The hosted application and its saved recipes remain private to the owner, while the source code is public. It is designed around a simple loop: save a recipe, cook it, record what changed, and decide whether it is worth keeping.
 
 ## What exists
 
@@ -29,6 +29,10 @@ npm run dev
 ```
 
 The homepage is available at `/`, the complete recipe drawer at `/recipes`, and the meal planner at `/planner`.
+
+## Source repository
+
+The source code is public at [Yashpatil95/kitchen-katha](https://github.com/Yashpatil95/kitchen-katha). The deployed Sites application remains owner-private, and its production recipe database is not stored in this repository.
 
 ## Instagram imports
 
