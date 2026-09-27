@@ -1,12 +1,13 @@
-import { MEAL_TYPES, parseRecipeDraft } from "./recipe-input.mjs";
+import { parseRecipeDraft } from "./recipe-input.mjs";
+import { mergeRecipeEvidence, RecipeTextError } from "./recipe-text.mjs";
 
-const INGREDIENT_NAMES = "ingredients?|you(?:’|'| wi)ll need|samagri|सामग्री";
-const METHOD_NAMES = "method|directions?|instructions?|steps?|procedure|how to make|preparation|vidhi|विधि|कृती";
-const INGREDIENT_HEADING = new RegExp(`^(${INGREDIENT_NAMES})(?:\\s+(?:for|serves?)\\s+(\\d+)|\\s*\\((?:serves?\\s*)?(\\d+)\\))?\\s*(?:[:–—-]\\s*(.*))?$`, "i");
-const METHOD_HEADING = new RegExp(`^(${METHOD_NAMES})\\s*(?:[:–—-]\\s*(.*))?$`, "i");
-const IGNORE_LINE = /^(liked by|view all|more$|follow$|original audio|\d+\s+(likes?|comments?))/i;
 const MAX_HTML_BYTES = 1_000_000;
-const MAX_CAPTION_LENGTH = 100_000;
+const EVIDENCE_LIMITS = {
+  caption: ["caption", 100_000],
+  transcript: ["transcript", 100_000],
+  imageText: ["image text", 50_000],
+  commentText: ["comment text", 1_500],
+};
 
 export class InstagramImportError extends Error {
   constructor(code, message, { status = 422, stage = "parse", canPasteCaption = false, draft = null, missing = [] } = {}) {
@@ -21,32 +22,21 @@ export class InstagramImportError extends Error {
   }
 }
 
-const cleanLine = (line) =>
-  line
-    .replace(/^[\s•●▪◦‣·–—*-]+/, "")
-    .replace(/^\s*(?:step\s*)?\d+[.)-]\s*/i, "")
-    .trim();
-
-const headingText = (line) => line.replace(/^[^\p{L}\p{M}]+/gu, "").trim();
-const ingredientHeading = (line) => headingText(line).match(INGREDIENT_HEADING);
-const methodHeading = (line) => headingText(line).match(METHOD_HEADING);
-const isIngredientHeading = (line) => Boolean(ingredientHeading(line));
-const isMethodHeading = (line) => Boolean(methodHeading(line));
-
-const splitItems = (value) => value
-  ? String(value)
-      .split(/\s*[;|]\s*|\s+(?=(?:step\s*)?\d+[.)-]\s+)/i)
-      .map(cleanLine)
-      .filter(Boolean)
-  : [];
-
-const usefulLines = (caption) =>
-  String(caption)
-    .replace(/\r/g, "")
-    .replace(/[•●▪◦‣]\s*/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !IGNORE_LINE.test(line) && !/^#/.test(line) && !/^\[[^\]]*(?:recipe|food)[^\]]*\]$/i.test(line));
+const evidenceText = (value, field) => {
+  if (value === null || typeof value === "undefined" || value === "") return "";
+  const [label, limit] = EVIDENCE_LIMITS[field];
+  if (typeof value !== "string") {
+    throw new InstagramImportError("invalid_evidence", `The ${label} must be text.`, { status: 400, stage: "validate" });
+  }
+  const text = value.trim();
+  if (text.length > limit) {
+    throw new InstagramImportError(field === "caption" ? "caption_too_large" : "evidence_too_large", `The ${label} is too long to import safely.`, {
+      status: 413,
+      stage: "validate",
+    });
+  }
+  return text;
+};
 
 export function instagramUrl(value) {
   let url;
@@ -190,93 +180,39 @@ export async function fetchInstagramCaption(sourceUrl, fetcher = fetch) {
   });
 }
 
-const mealTypesFor = (text) => {
-  const matches = [
-    ["Breakfast", /breakfast|nashta|poha|upma|dosa|idli|paratha/i],
-    ["Lunch", /lunch|thali/i],
-    ["Dinner", /dinner|curry|dal|sabzi|biryani|pulao/i],
-    ["Snacks", /snack|chaat|pakora|vada|cutlet|tikki/i],
-    ["Baking", /bake|bread|cake|cookie|muffin/i],
-    ["Drinks", /drink|chai|tea|coffee|lassi|sharbat|smoothie/i],
-    ["Desserts", /dessert|sweet|mithai|halwa|kheer|ladoo|barfi/i],
-    ["Sides", /side|chutney|raita|pickle/i],
-  ].filter(([, pattern]) => pattern.test(text)).map(([meal]) => meal);
-  return matches.filter((meal) => MEAL_TYPES.includes(meal)).slice(0, 3);
-};
-
-const dietFor = (text) => {
-  if (/\b(beef|pork|bacon|ham|steak)\b/i.test(text)) return "Other";
-  if (/mutton|lamb|goat/i.test(text)) return "Mutton";
-  if (/chicken/i.test(text)) return "Chicken";
-  if (/fish|prawn|shrimp|seafood/i.test(text)) return "Seafood";
-  if (/\begg/i.test(text)) return "Egg";
-  if (/\bvegan\b/i.test(text)) return "Vegan";
-  if (/\bjain\b/i.test(text)) return "Jain";
-  if (/\bvegetarian\b|\bveg\b/i.test(text)) return "Vegetarian";
-  return "Unknown";
-};
-
-export function parseInstagramCaption(caption, sourceUrl) {
-  const rawCaption = String(caption);
-  if (rawCaption.length > MAX_CAPTION_LENGTH) {
-    throw new InstagramImportError("caption_too_large", "The caption is too long to import safely.", { status: 413, stage: "validate" });
-  }
-  const lines = usefulLines(rawCaption);
-  if (!lines.length) throw new InstagramImportError("empty_caption", "No usable recipe caption was found.");
-
-  const ingredientAt = lines.findIndex(isIngredientHeading);
-  const methodAt = lines.findIndex(isMethodHeading);
-  const firstSection = [ingredientAt, methodAt].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? lines.length;
-  const titleCandidates = lines.slice(0, firstSection).filter((line) => !/^@/.test(line));
-  const title = cleanLine(titleCandidates[0] || "Instagram recipe").slice(0, 120);
-  const ingredientEnd = methodAt > ingredientAt ? methodAt : lines.length;
-  const inlineIngredients = ingredientAt >= 0 ? ingredientHeading(lines[ingredientAt])?.[4] : "";
-  const ingredients = ingredientAt >= 0
-    ? [inlineIngredients, ...lines.slice(ingredientAt + 1, ingredientEnd)].flatMap(splitItems).filter(Boolean)
-    : [];
-  const inlineMethod = methodAt >= 0 ? methodHeading(lines[methodAt])?.[2] : "";
-  const steps = methodAt >= 0
-    ? [inlineMethod, ...lines.slice(methodAt + 1)].flatMap(splitItems).filter((line) => line && !/^#/.test(line))
-    : [];
-  const description = titleCandidates.slice(1).join(" ").slice(0, 400);
-  const fullText = lines.join(" ");
-  const mealTypes = mealTypesFor(fullText);
-  const headingServings = ingredientAt >= 0 ? ingredientHeading(lines[ingredientAt]) : null;
-  const servings = Number(headingServings?.[2] || headingServings?.[3] || fullText.match(/\bserves?\s*:?\s*(\d{1,3})\b/i)?.[1] || 0);
-  const missing = [];
-  if (!ingredients.length) missing.push("ingredients");
-  if (!steps.length) missing.push("steps");
-
-  return {
-    draft: {
-      title,
-      description,
-      mealTypes: mealTypes.length ? mealTypes : ["Other"],
-      cuisine: /indian|masala|dal|paneer|sabzi|biryani|poha|dosa|idli|chutney|raita/i.test(fullText) ? "Indian" : "Other",
-      diet: dietFor(fullText),
-      status: "want-to-try",
-      spiceLevel: /chilli|chili|mirchi|spicy|hot/i.test(fullText) ? 2 : -1,
-      prepMinutes: 0,
-      cookMinutes: 0,
-      // ponytail: zero means “not stated” until these legacy non-null columns are made nullable.
-      servings: servings >= 1 && servings <= 100 ? servings : 0,
-      ingredients,
-      steps,
+export function parseInstagramCaption(caption, sourceUrl, { transcript = "", imageText = "", commentText = "" } = {}) {
+  try {
+    return mergeRecipeEvidence({ caption, transcript, imageText, commentText }, {
+      fallbackTitle: "Instagram recipe",
       notes: "Automatically imported from Instagram. Check the original post if a quantity or technique is unclear.",
       sourceUrl,
-      calories: null,
-      proteinGrams: null,
-      fibreGrams: null,
-      lastCookedAt: null,
-      rating: null,
-    },
-    missing,
-    warnings: missing.map((field) => `${field === "ingredients" ? "Ingredients" : "Method steps"} were not clearly labelled.`),
-  };
+    });
+  } catch (error) {
+    if (!(error instanceof RecipeTextError)) throw error;
+    if (error.code === "text_too_large") {
+      throw new InstagramImportError("caption_too_large", "The caption is too long to import safely.", { status: 413, stage: "validate" });
+    }
+    throw new InstagramImportError("empty_caption", "No usable recipe caption was found.");
+  }
 }
 
-export async function importInstagramRecipe({ url, caption, fetcher = fetch, findExisting, saveRecipe }) {
+export async function importInstagramRecipe({
+  url,
+  caption,
+  transcript,
+  imageText,
+  commentText,
+  fetcher = fetch,
+  findExisting,
+  saveRecipe,
+}) {
   const sourceUrl = instagramUrl(url);
+  const evidence = {
+    caption: evidenceText(caption, "caption"),
+    transcript: evidenceText(transcript, "transcript"),
+    imageText: evidenceText(imageText, "imageText"),
+    commentText: evidenceText(commentText, "commentText"),
+  };
   try {
     const existing = await findExisting(sourceUrl);
     if (existing) return { recipe: existing, alreadySaved: true };
@@ -284,8 +220,14 @@ export async function importInstagramRecipe({ url, caption, fetcher = fetch, fin
     throw new InstagramImportError("storage_error", "Kitchen Katha could not check the recipe drawer.", { status: 500, stage: "deduplicate" });
   }
 
-  const suppliedCaption = typeof caption === "string" ? caption.trim() : "";
-  const parsed = parseInstagramCaption(suppliedCaption || await fetchInstagramCaption(sourceUrl, fetcher), sourceUrl);
+  if (!evidence.caption) {
+    try {
+      evidence.caption = await fetchInstagramCaption(sourceUrl, fetcher);
+    } catch (error) {
+      if (!evidence.transcript && !evidence.imageText) throw error;
+    }
+  }
+  const parsed = parseInstagramCaption(evidence.caption, sourceUrl, evidence);
   if (parsed.missing.length) {
     throw new InstagramImportError("incomplete_caption", "I found part of the recipe, but some required information is missing.", {
       stage: "parse",

@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   captionFromInstagramHtml,
   fetchInstagramCaption,
+  InstagramImportError,
   importInstagramRecipe,
   instagramUrl,
   parseInstagramCaption,
 } from "../db/instagram-recipe.mjs";
 
 const sourceUrl = "https://www.instagram.com/reel/Paneer_123/";
+const journalSource = readFileSync(new URL("../app/recipe-journal.tsx", import.meta.url), "utf8");
 const completeCaption = `Paneer Tikka Wrap 🌯
 A quick high-protein Indian dinner.
 
@@ -24,60 +27,25 @@ How to make:
 
 #paneer #dinner`;
 
-test("turns a realistic multi-section Indian caption into a truthful structured draft", () => {
+test("adds Instagram provenance to the shared recipe-text result", () => {
   const { draft, missing, warnings } = parseInstagramCaption(completeCaption, sourceUrl);
 
   assert.equal(draft.title, "Paneer Tikka Wrap 🌯");
-  assert.deepEqual(draft.ingredients, ["200 g paneer", "1 tsp chilli powder", "2 rotis"]);
-  assert.deepEqual(draft.steps, ["Marinate the paneer.", "Grill until golden.", "Roll into the rotis."]);
-  assert.deepEqual(draft.mealTypes, ["Dinner"]);
-  assert.equal(draft.cuisine, "Indian");
-  assert.equal(draft.servings, 2);
-  assert.equal(draft.diet, "Unknown");
-  assert.equal(draft.prepMinutes, 0);
-  assert.equal(draft.calories, null);
   assert.equal(draft.sourceUrl, sourceUrl);
+  assert.match(draft.notes, /Instagram/);
   assert.deepEqual(missing, []);
   assert.deepEqual(warnings, []);
 });
 
-test("supports inline ingredient and numbered method sections", () => {
-  const { draft, missing } = parseInstagramCaption(`Masala Chai
-Ingredients: 1 cup milk; 1 cup water; 2 tsp tea
-Preparation: 1. Boil the water 2. Add tea and milk 3. Strain and serve`, sourceUrl);
-
-  assert.deepEqual(draft.ingredients, ["1 cup milk", "1 cup water", "2 tsp tea"]);
-  assert.deepEqual(draft.steps, ["Boil the water", "Add tea and milk", "Strain and serve"]);
-  assert.deepEqual(missing, []);
-});
-
-test("accepts dash-suffixed headings and drops social tag blocks", () => {
-  const { draft, missing } = parseInstagramCaption(`Afghani Chicken
-ingredients
-- 300 g chicken
-- 1/2 cup curd
-method-
-- Marinate for 20 minutes.
-- Cook until golden.
-[chicken, cooking, recipe, food reels]
-#food #reels View all comments`, sourceUrl);
-
-  assert.deepEqual(draft.ingredients, ["300 g chicken", "1/2 cup curd"]);
-  assert.deepEqual(draft.steps, ["Marinate for 20 minutes.", "Cook until golden."]);
-  assert.deepEqual(missing, []);
-});
-
-test("does not label meat recipes vegetarian or invent missing fields", () => {
-  const { draft } = parseInstagramCaption(`Pepper Beef
-Ingredients:
-500 g beef
-Method:
-1. Sear until cooked.`, sourceUrl);
-
-  assert.equal(draft.diet, "Other");
-  assert.equal(draft.servings, 0);
-  assert.equal(draft.spiceLevel, -1);
-  assert.deepEqual(draft.mealTypes, ["Other"]);
+test("keeps generic text failures inside the existing Instagram error contract", () => {
+  assert.throws(
+    () => parseInstagramCaption("  \n#food", sourceUrl),
+    (error) => error instanceof InstagramImportError && error.code === "empty_caption",
+  );
+  assert.throws(
+    () => parseInstagramCaption("x".repeat(100_001), sourceUrl),
+    (error) => error instanceof InstagramImportError && error.code === "caption_too_large" && error.status === 413,
+  );
 });
 
 test("blocks invalid links and normalises current Instagram share-link shapes", () => {
@@ -139,6 +107,71 @@ test("returns an editable draft instead of saving an incomplete caption", async 
       && error.draft.ingredients[0] === "1 cup coconut",
   );
   assert.equal(saves, 0);
+});
+
+test("accepts bounded transcript, image text and comments when the public caption is unavailable", async () => {
+  let saved;
+  const result = await importInstagramRecipe({
+    url: sourceUrl,
+    transcript: `Narrated coconut chutney
+Ingredients:
+1 cup coconut`,
+    imageText: `Method card
+Method:
+1. Blend until smooth.`,
+    commentText: "Toast the coconut first for a nuttier flavour.",
+    fetcher: async () => new Response("Forbidden", { status: 403 }),
+    findExisting: async () => null,
+    saveRecipe: async (draft) => {
+      saved = draft;
+      return { recipe: { id: 8, ...draft }, alreadySaved: false };
+    },
+  });
+
+  assert.equal(result.recipe.id, 8);
+  assert.deepEqual(saved.ingredients, ["1 cup coconut"]);
+  assert.deepEqual(saved.steps, ["Blend until smooth."]);
+  assert.match(saved.notes, /Comments \(unverified\):/);
+  assert.match(saved.notes, /Toast the coconut first/);
+});
+
+test("wires a bounded manual narration transcript into the import request", () => {
+  assert.match(journalSource, /<textarea name="instagramTranscript"[^>]*maxLength=\{100000\}/);
+  assert.match(journalSource, /JSON\.stringify\(\{[^}]*transcript/);
+  assert.match(journalSource, /Paste the caption, a narration transcript, or text found in images\./);
+  assert.match(journalSource, /does not transcribe the video or use API credits/i);
+});
+
+test("wires bounded manual image text and unverified comments into the import request", () => {
+  assert.match(journalSource, /<textarea name="instagramImageText"[^>]*maxLength=\{50000\}/);
+  assert.match(journalSource, /<textarea name="instagramComments"[^>]*maxLength=\{1500\}/);
+  assert.match(journalSource, /JSON\.stringify\(\{[^}]*imageText, commentText/);
+  assert.match(journalSource, /does not inspect the images or use OCR credits/i);
+  assert.match(journalSource, /Comments \(unverified\).*never treated as ingredients or method steps/i);
+});
+
+test("rejects invalid or oversized optional evidence before external work", async () => {
+  const base = {
+    url: sourceUrl,
+    fetcher: async () => assert.fail("invalid evidence must not trigger retrieval"),
+    findExisting: async () => assert.fail("invalid evidence must not reach storage"),
+    saveRecipe: async () => assert.fail("invalid evidence must not be saved"),
+  };
+
+  await assert.rejects(
+    importInstagramRecipe({ ...base, transcript: { text: "not a string" } }),
+    (error) => error.code === "invalid_evidence" && error.status === 400 && error.stage === "validate",
+  );
+  for (const evidence of [
+    { transcript: "x".repeat(100_001) },
+    { imageText: "x".repeat(50_001) },
+    { commentText: "x".repeat(1_501) },
+  ]) {
+    await assert.rejects(
+      importInstagramRecipe({ ...base, ...evidence }),
+      (error) => error.code === "evidence_too_large" && error.status === 413 && error.stage === "validate",
+    );
+  }
 });
 
 test("does not retrieve or save a duplicate source link", async () => {

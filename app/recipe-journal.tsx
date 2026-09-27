@@ -98,15 +98,23 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
 
   const importRecipe = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setImportBusy(true);
     setImportMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
+    const caption = String(data.get("instagramCaption") ?? "").trim();
+    const transcript = String(data.get("instagramTranscript") ?? "").trim();
+    const imageText = String(data.get("instagramImageText") ?? "").trim();
+    const commentText = String(data.get("instagramComments") ?? "").trim();
+    if (showCaptionFallback && !caption && !transcript && !imageText) {
+      setImportMessage("Paste the caption, a narration transcript, or text found in images.");
+      return;
+    }
+    setImportBusy(true);
     try {
       const response = await fetch("/api/import-instagram", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: data.get("instagramUrl"), caption: data.get("instagramCaption") }),
+        body: JSON.stringify({ url: data.get("instagramUrl"), caption, transcript, imageText, commentText }),
       });
       const result = (await response.json()) as {
         recipe?: Recipe;
@@ -295,12 +303,30 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           </div>
           <div className="import-fields">
             <label className="field"><span className="sr-only">Instagram recipe link</span><input name="instagramUrl" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
-            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : showCaptionFallback ? "Create from caption" : "Add to drawer"}</button>
+            <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : showCaptionFallback ? "Create from text" : "Add to drawer"}</button>
           </div>
+          <details className="import-evidence">
+            <summary>Recipe is in the Reel narration?</summary>
+            <label className="field">Narration transcript
+              <textarea name="instagramTranscript" rows={6} maxLength={100000} aria-describedby="narration-help" placeholder={"Recipe title\nIngredients:\n…\nMethod:\n…"} />
+            </label>
+            <small className="import-limit" id="narration-help">Paste the words spoken in the Reel, with Ingredients and Method headings when possible. This does not transcribe the video or use API credits.</small>
+          </details>
+          <details className="import-evidence">
+            <summary>Recipe is written in images or comments?</summary>
+            <label className="field">Text found in images
+              <textarea name="instagramImageText" rows={6} maxLength={50000} aria-describedby="image-text-help" placeholder={"Recipe title\nIngredients:\n…\nMethod:\n…"} />
+            </label>
+            <small className="import-limit" id="image-text-help">Paste only the recipe words you can see. Kitchen Katha does not inspect the images or use OCR credits.</small>
+            <label className="field import-comments">Useful comments
+              <textarea name="instagramComments" rows={4} maxLength={1500} aria-describedby="comments-help" placeholder="e.g. Reduce the heat after adding yoghurt." />
+            </label>
+            <small className="import-limit" id="comments-help">Comments are saved as “Comments (unverified)” in your notes and never treated as ingredients or method steps.</small>
+          </details>
           {showCaptionFallback && <label className="field import-caption">Paste the Instagram caption
-            <textarea name="instagramCaption" required rows={8} maxLength={100000} placeholder={"Recipe title\nIngredients for 2:\n…\nHow to make:\n…"} />
+            <textarea name="instagramCaption" rows={8} maxLength={100000} placeholder={"Recipe title\nIngredients for 2:\n…\nHow to make:\n…"} />
           </label>}
-          <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste the caption here and the same formatter will handle it.</small>
+          <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste its caption, narration transcript or text found in images and the same formatter will handle it.</small>
           {importMessage && <p className="form-error" role="alert">{importMessage}</p>}
         </form>
 

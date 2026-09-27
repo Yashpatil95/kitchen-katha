@@ -387,3 +387,317 @@ Kitchen Katha can now be browsed and cloned publicly while the live recipes rema
 **Reversal path**
 
 Change the GitHub repository visibility to private or archive it, then update the README and project register. Removing the local `origin` remote is optional and does not alter the local history.
+
+## 2026-09-27 — Bound multimodal recipe extraction by ownership, privacy and explicit credit consent
+
+**Context**
+
+The owner wants future imports to understand reel narration, text shown inside video or images, comments, and private or login-gated posts. This work will be applied one small step at a time and must avoid unexpected API charges, credential exposure, or bypassing Instagram access controls.
+
+**Options considered**
+
+1. Scrape arbitrary Instagram pages with browser sessions and automatically call paid models.
+2. Build narration, OCR, comment and private-post support as one pipeline.
+3. Extend the existing deterministic importer incrementally, using only public or owner-authorised source material and explicit gates for paid processing.
+
+**Decision**
+
+Use option 3. The existing public-caption importer remains the first path. Additional automatic extraction may use media, screenshots, text or comments deliberately supplied by the owner and permitted for use, or a future official Meta API connection for an authorised professional account and media that API permits. Kitchen Katha will not collect Instagram passwords, browser cookies or session tokens, bypass private or login controls, or scrape arbitrary private consumer content. “Private or login-gated support” means owner-supplied media they may lawfully use, or official authorised access; it does not mean defeating access restrictions.
+
+Raw audio, video and images will be processed transiently and discarded rather than stored in D1 or application logs. API credentials belong only in hosting secrets or server environment variables, never Git, D1 or client code. Captions, transcripts, OCR text, comments, raw media and credentials must not be logged. Extracted text must remain editable and reviewable before saving a recipe. Comments are untrusted notes and must not silently become ingredients or method steps.
+
+The deterministic parser will always run before paid processing. Manual transcript, image-text and comment entry will remain a zero-runtime-credit path. Pasting a link alone will never trigger a paid call. Transcription or OCR requires an explicit control that warns it uses API credits, makes one bounded request without automatic retry, and applies conservative media, duration, frame and comment limits. Exact provider, model, pricing and limits will be checked when that step is implemented. A real paid test requires a separate command with an explicit spending cap. Each `apply step N` command performs only that step and stops; only named checkpoint steps may commit, push or deploy unless separately authorised.
+
+**Rationale**
+
+This preserves the working, no-cost caption path and adds more capable extraction only when the source actually needs it. It respects Instagram's access boundary, keeps private cooking media out of persistent storage, and makes every charge a visible user choice. ChatGPT subscription usage and API billing are separate, so an explicit API gate prevents the project from treating them as one allowance.
+
+**Rejected alternatives**
+
+Password, cookie or session capture and private-access bypasses are unsafe and outside the product boundary. Always-on AI would spend credits on captions the existing parser can already handle. Persisting raw media would add storage, retention and deletion obligations before a real need exists. Automatically merging comments into recipes would treat untrusted discussion as verified cooking instructions.
+
+**Trade-offs**
+
+Some imports will require the owner to upload media, paste text, review extracted content or connect an eligible professional account. Arbitrary private posts and complete comment threads will not become universally importable. Incremental delivery takes more checkpoints, but each change remains small, testable, reversible and cost-controlled.
+
+**Implementation effect**
+
+This step changes governance documentation only. It does not change application code, schema, dependencies, provider configuration, secrets, interface, deployment or access policy. The current caption importer remains unchanged.
+
+**Verification**
+
+The repository diff was checked to confirm that this decision and the central project-register entry are the only intended edits. `git diff --check` passed. No application test or paid external call was needed because runtime behaviour did not change.
+
+**Consequences**
+
+All later multimodal-import steps inherit these source, privacy and credit rules. Live paid tests need separate, precisely bounded approval. The first implementation step can refactor the existing caption parser without contacting an external model.
+
+**Reversal path**
+
+Replace this decision before multimodal implementation begins. Because this step creates no runtime artifact, provider account, stored media or migration, reversal requires documentation edits only.
+
+## 2026-09-27 — Separate recipe-text parsing from Instagram retrieval
+
+**Context**
+
+Narration transcripts, OCR output and owner-supplied text will eventually need the same deterministic recipe parsing already used for Instagram captions. That parsing was embedded in the Instagram retrieval module, which would make each later source depend on Instagram-specific code.
+
+**Options considered**
+
+1. Copy the caption parser for each future text source.
+2. Wait until the first paid media integration before separating the parser.
+3. Move the existing deterministic logic into one source-neutral pure-text module and keep a thin Instagram adapter for its existing metadata and error contract.
+
+**Decision**
+
+Use option 3. `parseRecipeText` now owns heading recognition, ingredient and method extraction, truthful defaults, meal and diet hints, size limits and incomplete-field warnings. It accepts optional caller-supplied fallback title, notes and source URL without fetching data or knowing which source produced the text. `parseInstagramCaption` supplies Instagram provenance and translates generic parser failures back to the existing Instagram error codes.
+
+**Rationale**
+
+One deterministic parser is the smallest reusable foundation for captions, manual transcripts and later OCR. Keeping retrieval and parsing separate prevents future media paths from duplicating business rules, while the adapter preserves the current route response and saved recipe behaviour.
+
+**Rejected alternatives**
+
+Duplicating the parser would let source behaviours drift. Deferring the separation would mix structural refactoring into a later provider integration and make that paid step harder to verify. A parser interface or provider hierarchy was unnecessary because there is one pure function and one current caller.
+
+**Trade-offs**
+
+The parser is now one additional module, and Instagram-specific validation errors require a small translation boundary. Its existing deterministic heuristics remain intentionally limited; this step does not claim to understand free-form narration without recognisable ingredient and method sections.
+
+**Implementation effect**
+
+Parsing logic moved from `db/instagram-recipe.mjs` to `db/recipe-text.mjs`. The Instagram importer calls it through the existing `parseInstagramCaption` adapter. Focused parser tests moved to `tests/recipe-text.test.mjs`, while Instagram tests retain provenance, error-contract, retrieval and save-flow coverage. No dependency, external model, API call, database change, interface change or deployment was added.
+
+**Verification**
+
+Thirteen focused recipe-text and Instagram importer tests passed. Focused ESLint and `git diff --check` also passed. No external or paid service was contacted.
+
+**Consequences**
+
+Later owner-supplied transcripts or OCR text can reuse the same tested parser without importing Instagram retrieval concerns. Current caption imports keep their existing output and errors.
+
+**Reversal path**
+
+Move the parsing constants and function back into `db/instagram-recipe.mjs`, remove its adapter and restore the former focused tests. No stored data or migration is involved.
+
+## 2026-09-27 — Merge recipe evidence by trusted source priority
+
+**Context**
+
+Future imports may contain overlapping recipe text from a public caption, an owner-supplied narration transcript and text read from selected images. Comments may contain useful tips, but they are untrusted discussion and must not silently become cooking instructions.
+
+**Options considered**
+
+1. Concatenate every source and parse the combined text once.
+2. Parse captions, transcripts, image text and comments as equal recipe evidence.
+3. Parse caption, transcript and image text independently, then fill missing recipe fields in that priority order while preserving comments only as labelled notes.
+
+**Decision**
+
+Use option 3. `mergeRecipeEvidence` prefers the first usable title or complete field in this order: caption, transcript, image text. A later source fills a field only when earlier sources did not state it. Ingredient and method sections are selected as whole sections rather than combined line by line. Comment text is appended under `Comments (unverified)` and is never passed to the recipe parser. Comment-only input cannot create a recipe draft.
+
+**Rationale**
+
+Independent parsing prevents a second source's title or headings from being mistaken for ingredients in an incomplete first source. Whole-section priority is deterministic, avoids duplicate lines and preserves the public caption as the primary account. Keeping comments outside the parser enforces the trust boundary in one shared function rather than relying on every future caller.
+
+**Rejected alternatives**
+
+Raw concatenation breaks section boundaries when one source is incomplete. Treating comments as recipe evidence could turn guesses, corrections or malicious text into ingredients and instructions. Item-level similarity and reconciliation were not added because no real example yet justifies that complexity.
+
+**Trade-offs**
+
+When two sources contain different useful lines within the same ingredient or method section, the higher-priority complete section wins and the lower-priority lines are not merged automatically. The resulting draft remains reviewable, and item-level reconciliation can be added later if real imports show repeated loss of complementary details.
+
+**Implementation effect**
+
+The shared pure-text module now exports `mergeRecipeEvidence`. The existing Instagram caption adapter uses it with one caption, proving the merger on the current route without changing user-visible behaviour. Transcript, image-text and comment inputs are not yet accepted by the API or interface. No dependency, external model, network call, database change, commit, deployment or paid processing was added.
+
+**Verification**
+
+Sixteen focused recipe-text and Instagram importer tests passed, including source priority, missing-section fallback, OCR-last behaviour, comment isolation and the existing Instagram error contract. Focused ESLint and `git diff --check` passed. No external service was contacted.
+
+**Consequences**
+
+The next step can expose bounded optional evidence fields through the import API without inventing another merge rule. Comments will remain visibly unverified notes regardless of their contents.
+
+**Reversal path**
+
+Change the Instagram adapter back to `parseRecipeText`, remove `mergeRecipeEvidence` and its three focused tests. No stored data or migration is involved.
+
+## 2026-09-27 — Validate optional recipe evidence at the import boundary
+
+**Context**
+
+The evidence merger can now combine captions, transcripts, image text and comment notes, but the import endpoint previously accepted only a link and optional pasted caption. Future interface fields must not be able to send unbounded or non-text evidence into retrieval, parsing or storage.
+
+**Options considered**
+
+1. Rely on future browser form limits.
+2. Validate the new fields only in the HTTP route.
+3. Let the route forward unknown values and validate them once in the shared import function before database or Instagram work.
+
+**Decision**
+
+Use option 3. The API accepts optional `transcript`, `imageText` and `commentText` fields. The shared import boundary requires strings, trims them and applies maximum lengths of 100,000 characters for captions, 100,000 for transcripts, 50,000 for image text and 1,500 for comments. Wrong types return `invalid_evidence` with HTTP 400; oversized supplemental evidence returns `evidence_too_large` with HTTP 413. The existing `caption_too_large` contract remains unchanged.
+
+When no caption is supplied, public-caption retrieval still runs first. If Instagram blocks retrieval, a transcript or image text may continue through the deterministic merger; comments alone cannot create or complete a recipe. Comment text remains labelled unverified notes.
+
+**Rationale**
+
+The shared import function is the first boundary used by every caller, so one validation point protects the route, tests and future interfaces. Validating before duplicate lookup, retrieval or saving avoids unnecessary work with rejected input. The comment cap keeps the existing provenance text and comments within the recipe note field's 2,000-character storage boundary.
+
+**Rejected alternatives**
+
+Browser-only limits are bypassable. Route-only validation would leave direct callers with a weaker contract and duplicate validation logic. Adding a schema library for four optional strings would add a dependency without improving this small boundary.
+
+**Trade-offs**
+
+Limits use JavaScript character counts rather than encoded byte counts, which is sufficient for bounded text already held in the JSON request. Long transcripts or OCR dumps must be shortened before submission. The API capability is intentionally not visible in the interface until the dedicated form steps add reviewable inputs.
+
+**Implementation effect**
+
+The Instagram import route forwards three new optional fields. `importInstagramRecipe` validates them, keeps caption retrieval first and uses supplied transcript or image text only when needed. No UI, dependency, database schema, external model, paid call, secret, commit, deployment or live-site behaviour changed.
+
+**Verification**
+
+Eighteen focused recipe-text and Instagram importer tests passed. They cover successful transcript/image/comment import after blocked caption retrieval, wrong-type rejection, all three supplemental length limits, evidence priority, comment isolation and the previous importer paths. Focused ESLint and `git diff --check` passed. No external service was contacted.
+
+**Consequences**
+
+The next step can add a manual narration transcript box without changing the server contract. Later OCR and comment inputs can reuse the same bounded fields.
+
+**Reversal path**
+
+Remove the three request fields, evidence validation helper and supplemental import arguments, then restore caption-only retrieval. No stored data or migration is involved.
+
+## 2026-09-27 — Offer manual narration without automatic transcription
+
+**Context**
+
+The import API can accept a bounded transcript, but the recipe drawer had no way to supply one. Narration needed an immediately usable zero-credit path without making the compact Instagram import card confusing or implying that Kitchen Katha listens to the Reel.
+
+**Options considered**
+
+1. Show a large transcript box permanently.
+2. Add a separate narration page or dialog.
+3. Add one native collapsible transcript section to the existing import form and send its text through the bounded API.
+
+**Decision**
+
+Use option 3. The recipe drawer now includes **Recipe is in the Reel narration?**, which reveals a labelled transcript textarea capped at 100,000 characters. Its copy explains that the owner must paste the spoken words, that recognisable Ingredients and Method headings help, and that the action neither transcribes video nor uses API credits. The public caption remains the first source. After Instagram blocks caption retrieval, the form accepts either a pasted caption or a narration transcript.
+
+**Rationale**
+
+Native `details`, `summary` and `textarea` elements provide keyboard and mobile behaviour without new state, components or dependencies. Reusing the existing form, API and editable-draft path keeps narration consistent with caption imports and makes the zero-credit fallback available before any automatic transcription work.
+
+**Rejected alternatives**
+
+A permanently expanded field would crowd the main link flow for recipes whose public caption already works. A new route or dialog would duplicate submission and error handling. Labelling this as transcription would misrepresent a manual paste workflow and blur the later paid-processing boundary.
+
+**Trade-offs**
+
+The owner must obtain and paste a transcript, and free-form narration without recognisable recipe sections may still open an incomplete draft for review. The optional field is collapsed by default to preserve the existing compact form.
+
+**Implementation effect**
+
+The existing client submits `transcript` beside the link and optional caption. One native collapsible section and a small amount of matching CSS were added. The caption fallback no longer requires caption specifically when a transcript is available. README guidance now distinguishes manual transcript input from automatic transcription. No external model, media download, dependency, database change, paid call, commit, deployment or live-site change was added.
+
+**Verification**
+
+Nineteen focused recipe-text and Instagram importer tests passed, including a runnable check for the bounded transcript field, request wiring, fallback validation and no-credit copy. Focused ESLint and `git diff --check` passed. No external service was contacted; the full build and mobile browser checkpoint remain Step 6.
+
+**Consequences**
+
+Narration text can now be used locally as soon as the owner pastes it. Automatic transcription remains disabled and visibly separate. The next step can add equivalent manual image-text and comment-note fields.
+
+**Reversal path**
+
+Remove the transcript section, its styles and request property, then restore the caption-only fallback requirement and README wording. The server may retain its unused optional transcript field without affecting current imports, or that field can be removed with Step 3.
+
+## 2026-09-27 — Keep image text useful and comments untrusted
+
+**Context**
+
+The import API already accepts bounded image text and comment text, but the recipe drawer did not expose those inputs. The owner needs a zero-credit way to use recipe words shown inside Reel images and useful discussion tips without presenting manual paste as automatic OCR or allowing comments to become cooking instructions.
+
+**Options considered**
+
+1. Add automatic image inspection and comment collection now.
+2. Put all pasted text into one undifferentiated recipe box.
+3. Add separate manual image-text and useful-comment fields to the existing evidence section, preserving the server's evidence priority and comment trust boundary.
+
+**Decision**
+
+Use option 3. A second native collapsible section contains an editable **Text found in images** field capped at 50,000 characters and an editable **Useful comments** field capped at 1,500 characters. The client sends them as the API's existing `imageText` and `commentText` properties. Public caption, narration transcript and image text remain recipe evidence in that priority order. Comments are appended only under **Comments (unverified)** in notes and are never parsed as ingredients or method steps. After blocked caption retrieval, caption, narration or image text can provide the recipe; comments alone cannot.
+
+**Rationale**
+
+The existing form, API validation, evidence merger and editable incomplete-draft path already provide the required behaviour. Native `details`, labels and textareas keep the interface keyboard- and mobile-friendly without new state, components or dependencies. Separate fields make the different trust levels visible before submission and keep the security rule in the shared merger.
+
+**Rejected alternatives**
+
+Automatic OCR and comment retrieval would add media access, credentials, cost and privacy work reserved for a later checkpoint. One mixed text box would lose source priority and could let an unverified comment influence the recipe. A separate route or dialog would duplicate the current import flow.
+
+**Trade-offs**
+
+The owner must copy visible image text and select useful comments manually. Formatting still works best with recognisable Ingredients and Method headings. Comments remain reference notes even when they contain a valid correction; the owner can move a trusted correction into the editable recipe after review.
+
+**Implementation effect**
+
+The recipe drawer now submits two additional textareas through the already-bounded endpoint. Existing styles are reused for both evidence panels, with a shorter comment field. Interface copy states that no image inspection, OCR credits or automatic comment collection occurs. README guidance and the fallback prompt now include image text. No parser, API, dependency, database, external service, paid call, commit, deployment or live-site behaviour changed.
+
+**Verification**
+
+Twenty focused recipe-text and Instagram importer tests passed, including runnable checks for both field limits, request wiring, zero-credit image copy and the unverified-comment warning. Focused ESLint and `git diff --check` passed. No external service was contacted; the full build and mobile browser checkpoint remain Step 6.
+
+**Consequences**
+
+All four planned manual/public text sources can now reach the local importer with explicit priority and trust rules. Step 6 can verify the combined flow, production build and mobile layout before commit, push and deployment.
+
+**Reversal path**
+
+Remove the second evidence section, its two request properties and README wording. The server can retain the unused optional fields, or Step 3 can be reverted separately because no stored schema or migration depends on this interface.
+
+## 2026-09-27 — Release the zero-credit multimodal text workflow as one verified change
+
+**Context**
+
+Steps 0–5 established the trust, parsing, validation and interface boundaries for public captions plus owner-pasted narration, image text and comments. Those changes remained local while each boundary was checked independently. The release checkpoint now needs to prove the combined source, responsive interface and production bundle before one commit and deployment.
+
+**Options considered**
+
+1. Publish each intermediate step separately without a combined check.
+2. Delay release until automatic transcription, OCR and comment collection are added.
+3. Run the complete project checks and desktop/mobile interface verification, then publish the existing manual workflow as one release.
+
+**Decision**
+
+Use option 3. Release the deterministic, zero-credit workflow now. Public-caption retrieval remains automatic; narration, image text and comments remain explicit owner-pasted inputs. Automatic media processing, private/login-gated access and comment collection stay outside this release.
+
+**Rationale**
+
+The manual workflow already solves the immediate blocked-caption and Reel-text cases without credentials, media downloads, paid processing or new dependencies. A single combined checkpoint catches integration and responsive-layout failures while preserving the evidence-priority and untrusted-comment rules already tested at their shared boundaries.
+
+**Rejected alternatives**
+
+Intermediate deployments would expose partially connected states and repeat build work. Holding the useful manual path for automatic extraction would add cost and privacy scope before real use demonstrates that it is needed.
+
+**Trade-offs**
+
+The owner still copies narration, visible image text and selected comments. Automatic media extraction may be more convenient later, but it will require a separate consent, cost, privacy and failure-handling design. This release favours transparent inputs and predictable formatting.
+
+**Implementation effect**
+
+The release consists only of the source-neutral parser, evidence merger, bounded API fields, manual evidence controls, focused tests and matching documentation from Steps 0–5. No dependency, database schema, secret, automatic transcription, OCR or comment collection was added.
+
+**Verification**
+
+The production build completed successfully. All 24 project tests and whole-project ESLint passed, and `git diff --check` reported no whitespace errors. Browser verification at 1280 × 900 and 390 × 844 confirmed both native evidence sections are keyboard-operable, all three manual fields are editable with their expected limits, and the expanded importer has no horizontal overflow. The local `/recipes` route returned HTTP 200.
+
+**Consequences**
+
+The verified source can be committed once, pushed to the public GitHub repository and published to the existing owner-private Kitchen Katha Site. Later automatic extraction remains a separate opt-in step rather than an implied capability of this release.
+
+**Reversal path**
+
+Revert this release commit and redeploy the prior saved Site version. The database schema is unchanged, so existing recipe records require no migration or data rewrite.

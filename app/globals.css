@@ -198,6 +198,12 @@ button { color: inherit; }
 .import-fields { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .import-fields .field { display: block; }
 .import-fields input { height: 46px; }
+.import-evidence { margin-top: 14px; padding: 12px 14px; border: 1px solid #e1d2c6; border-radius: 13px; background: rgba(255,255,255,.48); }
+.import-evidence summary { cursor: pointer; color: #675246; font-size: 14px; font-weight: 800; }
+.import-evidence .field { margin-top: 12px; }
+.import-evidence textarea { min-height: 130px; }
+.import-evidence .import-comments textarea { min-height: 90px; }
+.import-evidence .import-limit { margin-top: 6px; }
 .import-caption { margin-top: 14px; }
 .import-caption textarea { min-height: 150px; }
 .import-limit { display: block; margin-top: 10px; color: #7d867f; font-size: 12px; }

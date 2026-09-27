@@ -3,9 +3,15 @@ import { createImportedRecipe, findRecipeBySourceUrl } from "../../../db/recipes
 
 export async function POST(request: Request) {
   try {
-    let payload: { url?: unknown; caption?: unknown };
+    let payload: {
+      url?: unknown;
+      caption?: unknown;
+      transcript?: unknown;
+      imageText?: unknown;
+      commentText?: unknown;
+    };
     try {
-      payload = await request.json() as { url?: unknown; caption?: unknown };
+      payload = await request.json() as typeof payload;
     } catch {
       throw new InstagramImportError("invalid_request", "Send an Instagram link to import.", {
         status: 400,
@@ -16,6 +22,9 @@ export async function POST(request: Request) {
     const result = await importInstagramRecipe({
       url: payload.url,
       caption: payload.caption,
+      transcript: payload.transcript,
+      imageText: payload.imageText,
+      commentText: payload.commentText,
       findExisting: findRecipeBySourceUrl,
       saveRecipe: createImportedRecipe,
     });
