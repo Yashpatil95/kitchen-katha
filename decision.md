@@ -378,7 +378,7 @@ README documentation distinguishes the public source repository from the private
 
 **Verification**
 
-Before publication, tracked files and the complete Git history were checked for credential-like filenames and common credential markers, with no matches. Publication is complete only when GitHub reports the repository as public and `origin/main` resolves to the exact local `HEAD` commit.
+Before publication, tracked files and the complete Git history were checked for credential-like filenames and common credential markers, with no matches. GitHub then reported `Yashpatil95/kitchen-katha` as public with `main` as its default branch, and `origin/main` resolved to the exact local `HEAD` commit. The repository description and README also distinguish public source from the private hosted application and production data.
 
 **Consequences**
 
