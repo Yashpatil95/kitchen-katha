@@ -39,4 +39,5 @@ yarn-error.log*
 /.pnpm-store/
 /outputs/
 /work/
+/graphify-out/
 *.tsbuildinfo
