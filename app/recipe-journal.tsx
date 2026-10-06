@@ -63,6 +63,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [selected, setSelected] = useState<Recipe | null>(null);
   const [busy, setBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [showCaptionFallback, setShowCaptionFallback] = useState(false);
   const [importDraft, setImportDraft] = useState<RecipeDraft | null>(null);
   const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -70,6 +71,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [message, setMessage] = useState("");
   const formDialog = useRef<HTMLDialogElement>(null);
   const detailDialog = useRef<HTMLDialogElement>(null);
+  const importForm = useRef<HTMLFormElement>(null);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -145,6 +147,50 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       setImportMessage(error instanceof Error ? error.message : "The recipe could not be imported.");
     } finally {
       setImportBusy(false);
+    }
+  };
+
+  const transcribeNarrationFile = async () => {
+    const form = importForm.current;
+    const file = form?.elements.namedItem("narrationFile") as HTMLInputElement | null;
+    const consent = form?.elements.namedItem("transcriptionConsent") as HTMLInputElement | null;
+    const transcript = form?.elements.namedItem("instagramTranscript") as HTMLTextAreaElement | null;
+    const media = document.createElement(file?.files?.[0]?.type.startsWith("video/") ? "video" : "audio");
+    const selected = file?.files?.[0];
+    if (!selected) return setImportMessage("Choose one audio or video file to transcribe.");
+    if (!consent?.checked) return setImportMessage("Confirm that the selected file may be sent for transcription.");
+    if (!/^(audio|video)\//.test(selected.type) || selected.size > 20 * 1024 * 1024) {
+      return setImportMessage("Choose an audio or video file no larger than 20 MB.");
+    }
+
+    setImportMessage("");
+    setTranscribing(true);
+    const source = URL.createObjectURL(selected);
+    try {
+      const durationSeconds = await new Promise<number>((resolve, reject) => {
+        media.preload = "metadata";
+        media.onloadedmetadata = () => resolve(media.duration);
+        media.onerror = () => reject(new Error("Kitchen Katha could not read this recording."));
+        media.src = source;
+      });
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 300) {
+        throw new Error("Choose a recording no longer than five minutes.");
+      }
+      const body = new FormData();
+      body.set("file", selected);
+      body.set("durationSeconds", String(durationSeconds));
+      body.set("creditConsent", "true");
+      const response = await fetch("/api/transcribe-narration", { method: "POST", body });
+      const result = await response.json() as { transcript?: string; error?: string };
+      if (!response.ok || !result.transcript) throw new Error(result.error || "Narration transcription failed.");
+      if (transcript) transcript.value = result.transcript;
+      setImportMessage("Transcript ready. Review and edit it before adding the recipe.");
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : "Narration transcription failed.");
+    } finally {
+      URL.revokeObjectURL(source);
+      media.removeAttribute("src");
+      setTranscribing(false);
     }
   };
 
@@ -296,7 +342,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           </div>
         </div>
 
-        <form className="instagram-import" onSubmit={importRecipe}>
+        <form className="instagram-import" ref={importForm} onSubmit={importRecipe}>
           <div className="import-copy">
             <span className="import-icon" aria-hidden="true">◎</span>
             <div><strong>Add a recipe from Instagram</strong><p>Paste a public post or reel link. Kitchen Katha will extract the recipe, format it and save the finished card automatically.</p></div>
@@ -311,6 +357,14 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
               <textarea name="instagramTranscript" rows={6} maxLength={100000} aria-describedby="narration-help" placeholder={"Recipe title\nIngredients:\n…\nMethod:\n…"} />
             </label>
             <small className="import-limit" id="narration-help">Paste the words spoken in the Reel, with Ingredients and Method headings when possible. This does not transcribe the video or use API credits.</small>
+            <div className="transcription-box">
+              <label className="field">Or upload narration audio/video
+                <input name="narrationFile" type="file" accept="audio/*,video/*" aria-describedby="transcription-help" />
+              </label>
+              <label className="credit-consent"><input name="transcriptionConsent" type="checkbox" /> I understand this sends the selected file to Cloudflare Workers AI for transcription.</label>
+              <button className="button button-outline" type="button" disabled={transcribing} onClick={transcribeNarrationFile}>{transcribing ? "Transcribing…" : "Transcribe narration"}</button>
+              <small className="import-limit" id="transcription-help">One file, maximum 20 MB and five minutes. This uses Cloudflare's free daily AI allocation. Nothing is saved automatically; review the transcript before adding the recipe.</small>
+            </div>
           </details>
           <details className="import-evidence">
             <summary>Recipe is written in images or comments?</summary>
@@ -327,7 +381,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             <textarea name="instagramCaption" rows={8} maxLength={100000} placeholder={"Recipe title\nIngredients for 2:\n…\nHow to make:\n…"} />
           </label>}
           <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste its caption, narration transcript or text found in images and the same formatter will handle it.</small>
-          {importMessage && <p className="form-error" role="alert">{importMessage}</p>}
+          {importMessage && <p className={importMessage.startsWith("Transcript ready.") ? "form-error form-success" : "form-error"} role={importMessage.startsWith("Transcript ready.") ? "status" : "alert"}>{importMessage}</p>}
         </form>
 
         <div className="toolbar">

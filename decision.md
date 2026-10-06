@@ -701,3 +701,234 @@ The verified source can be committed once, pushed to the public GitHub repositor
 **Reversal path**
 
 Revert this release commit and redeploy the prior saved Site version. The database schema is unchanged, so existing recipe records require no migration or data rewrite.
+
+## 2026-09-27 — Select Groq for the first bounded narration trial
+
+**Context**
+
+Automatic Reel-narration transcription is the next optional capability after the released manual evidence workflow. Before writing an integration, Step 7 must refresh current provider pricing, upload limits, lifecycle status and data handling, then choose the cheapest route that fits Kitchen Katha's existing edge runtime and explicit-credit boundary. This is a research checkpoint only: no provider account, secret, endpoint, media upload or paid call is authorised.
+
+**Options considered**
+
+1. Use Cloudflare Workers AI `@cf/openai/whisper-large-v3-turbo`, currently listed at $0.0005 per audio minute with a 10,000-neuron daily free allocation.
+2. Use Groq `whisper-large-v3-turbo`, currently listed at $0.04 per audio hour, or about $0.000667 per minute.
+3. Use OpenAI `gpt-transcribe`, currently listed at $0.0045 per audio minute, or the cheaper but deprecated `gpt-4o-mini-transcribe` at $0.003 per minute.
+
+**Decision**
+
+Select Groq `whisper-large-v3-turbo` as the provisional provider for Steps 8–10. At current list price, one maximum five-minute trial is about $0.0033. Its OpenAI-compatible multipart endpoint accepts direct multilingual audio or video uploads, and its 25 MB free-tier upload limit covers the existing 20 MB application cap.
+
+Keep the existing limits: one owner-supplied file, at most 20 MB and five minutes, one transcription request, no automatic retry, no automatic save, and transcript review before the deterministic parser runs. Step 8 will implement only a mocked server boundary that is disabled without a server-side `GROQ_API_KEY`. No real media may be sent until Zero Data Retention is enabled for the Groq organisation and the separately authorised paid-test step sets an explicit spend cap.
+
+**Rationale**
+
+Groq is the cheapest currently verified route that can be called directly over ordinary HTTPS from the existing server runtime without a new application dependency or a provider-specific platform binding. Its documentation identifies the turbo model as the best price/performance multilingual option, which matters for Indian cooking narration that may mix English with Indian languages. The planned five-minute file consumes only 300 audio seconds, comfortably within the documented free-tier rate limits of 7,200 audio seconds per hour and 28,800 per day; free-tier availability is a limit, not a promise that future use will remain free.
+
+Cloudflare's model is nominally cheaper at about $0.0025 for five minutes and the current free allocation would cover a small trial. However, Workers AI requires an AI binding or separately authenticated Cloudflare account API access, while Kitchen Katha's managed Sites configuration currently declares D1 only and no AI binding. Introducing an unverified platform binding for a saving of less than one tenth of a cent per maximum trial is not the simplest dependable first integration.
+
+**Rejected alternatives**
+
+Cloudflare Workers AI is deferred until the managed Sites workflow exposes a verified AI binding or the owner chooses to configure a separate Cloudflare account. OpenAI `gpt-transcribe` remains the fallback because its 25 MB limit and data controls fit the boundary, but a five-minute file costs about $0.0225. OpenAI `gpt-4o-mini-transcribe` is not suitable for a new integration because OpenAI deprecated it on 2026-08-26 and lists removal on 2027-02-26. An always-on transcription path is rejected because the existing caption and manual transcript paths cost nothing and often already provide the recipe.
+
+**Trade-offs**
+
+Groq reports a 12% word error rate for the turbo model versus 10.3% for `whisper-large-v3`; those aggregate figures do not establish accuracy for Kitchen Katha's real accents, background music or code-switching. The editable transcript checkpoint is therefore required. If the separately authorised trial is materially inaccurate, test Groq `whisper-large-v3` at its current $0.111 per hour before changing provider.
+
+Groq does not retain inference inputs or outputs by default, but it may temporarily log them for reliability or abuse investigations for up to 30 days unless Zero Data Retention is enabled. Any retained customer data is stored in US Google Cloud buckets. This is acceptable only with ZDR enabled before private cooking media is sent. Provider terms, model availability and prices can change and must be rechecked immediately before the first real call.
+
+**Implementation effect**
+
+None in Step 7. The application, schema, dependencies, secrets, interface, live deployment and current zero-credit import behaviour are unchanged. The next implementation step may target Groq's OpenAI-compatible transcription endpoint using native `fetch` and `FormData`, but must return mocked responses and remain disabled without a server secret.
+
+**Verification**
+
+Official provider documentation was checked on 2026-09-27: [Groq speech to text](https://console.groq.com/docs/speech-to-text), [rate limits](https://console.groq.com/docs/rate-limits) and [data controls](https://console.groq.com/docs/your-data); [OpenAI pricing](https://developers.openai.com/api/docs/pricing?tab=suite), [file transcription](https://developers.openai.com/api/docs/guides/speech-to-text), [data controls](https://developers.openai.com/api/docs/guides/your-data) and [deprecations](https://developers.openai.com/api/docs/deprecations); and Cloudflare [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/) and [binding requirements](https://developers.cloudflare.com/workers-ai/configuration/bindings/). The local `package.json` and `.openai/hosting.json` confirm an edge-hosted Vinext application with no AI binding or transcription SDK. No API request, media upload, provider signup or credit use occurred.
+
+**Consequences**
+
+Step 8 has a concrete provider contract and can stay small: native multipart forwarding, a single model identifier, strict local validation and mock-only verification. Step 10 must first confirm ZDR, current price, model availability and hosting upload behaviour, then use one deliberately short test under the user-approved cap. A successful transcript must still be shown for editing before recipe parsing or saving.
+
+**Reversal path**
+
+Replace this provider decision before Step 8, or change the mock adapter before any real-call checkpoint. Because Step 7 adds no runtime code, account, secret, stored media or migration, reversal is documentation-only.
+
+## 2026-10-04 — Add the disabled, mock-verified Groq transcription boundary
+
+**Context**
+
+Step 8 needs a testable server-side contract for future narration transcription without exposing a paid endpoint, uploading real media or weakening the later public-launch security work. The selected trial boundary is one owner-supplied audio or video file, at most 20 MB and five minutes, one provider request, transcript review and no automatic recipe save.
+
+**Options considered**
+
+1. Add a public upload route and connect it to the recipe interface now.
+2. Add the Groq SDK and a complete transcription workflow.
+3. Add one dependency-free provider adapter, keep it unreachable from the application, and verify it only with mocked responses.
+
+**Decision**
+
+Use option 3. `db/groq-transcription.mjs` validates the server secret, MIME family, byte size and caller-supplied duration before work; sends one native `FormData` request to Groq's OpenAI-compatible transcription endpoint using `whisper-large-v3-turbo`; bounds the response to 1 MB; and returns only a non-empty transcript of at most 100,000 characters. Provider failures use a small stable error contract and do not expose provider bodies. No route, client control, automatic retry, parser call or recipe save is added.
+
+**Rationale**
+
+The adapter is the smallest implementation that proves the provider contract while preserving the explicit-credit and transcript-review gates. Native `fetch`, `FormData`, `Blob` and `AbortSignal.timeout` already cover the job, so a provider dependency is unnecessary. Keeping the adapter unreachable also prevents the currently unauthenticated application API surface from becoming a paid-compute abuse path.
+
+**Rejected alternatives**
+
+A public route is rejected until owner authorization, request-size enforcement and rate limiting are implemented. A full interface would imply that automatic transcription is usable before privacy, hosting upload and real-provider checks pass. An SDK adds maintenance without improving this single request.
+
+**Trade-offs**
+
+The boundary is not user-accessible and its five-minute check currently trusts duration metadata supplied by a future authenticated server route. That future route must verify media duration rather than trusting a browser value. Provider compatibility is mock-verified only; it is not evidence that current production hosting accepts the upload or that Groq will accept a real file.
+
+**Implementation effect**
+
+One server-side module and one focused Node test file were added. The README now distinguishes the experimental adapter from the working manual-transcript flow. No dependency, schema, secret, route, interface, external request, commit, push or deployment was added.
+
+**Verification**
+
+`node --test tests/groq-transcription.test.mjs` passed all three tests, covering the missing-secret gate, invalid type, excessive duration, excessive file size, one mocked multipart request, fixed model and transcript return. The complete Node suite and production build were then run, and `git diff --check` passed. No provider call or API credit was used.
+
+**Consequences**
+
+Step 8 is complete as an inert provider boundary. Before any UI or route is added, Kitchen Katha still needs the recorded owner-only authorization, bounded request-body handling and abuse controls. The later real-call checkpoint must recheck provider terms, confirm Zero Data Retention and hosting upload behaviour, verify duration server-side, and use a separately approved spend cap.
+
+**Reversal path**
+
+Delete `db/groq-transcription.mjs` and `tests/groq-transcription.test.mjs`, then remove the matching README paragraph and this decision. There is no provider data, secret, schema or deployed endpoint to clean up.
+
+## 2026-10-04 — Wire explicit-consent narration upload without enabling paid calls
+
+**Context**
+
+Step 8 established a mock-verified Groq adapter but left it unreachable. Step 9 needs to connect that boundary to the existing editable narration transcript while preserving the rule that no upload or charge happens from merely pasting an Instagram link. The security review also found that application routes lack owner authorization, so a paid route must not become active by default.
+
+**Options considered**
+
+1. Automatically transcribe every Reel during Instagram import.
+2. Expose an enabled upload route controlled only by the presence of a Groq key.
+3. Add an explicit owner-upload and credit-consent control, a body-bounded server route requiring both a feature flag and secret, and return the transcript for review without parsing or saving.
+
+**Decision**
+
+Use option 3. The narration section accepts one audio or video file, checks its MIME family, 20 MB size and five-minute browser-readable duration, and requires a separate acknowledgement that Groq processing may use API credits. Only the **Transcribe narration** button submits the file. The route rejects disabled configuration before reading the body, requires a finite multipart `content-length` below the capped allowance, rechecks consent, and calls the Step 8 adapter only when both `NARRATION_TRANSCRIPTION_ENABLED=true` and `GROQ_API_KEY` exist server-side. A successful response fills the existing editable transcript field and announces that review is required; it does not parse or save a recipe.
+
+**Rationale**
+
+This reuses the existing transcript field and native browser media metadata instead of adding a second editor, upload library or state model. The feature flag prevents an accidentally configured secret from activating a paid endpoint. Keeping transcription separate from the Instagram submit action makes credit use deliberate and leaves the zero-credit manual path unchanged.
+
+**Rejected alternatives**
+
+Automatic transcription would spend credits on captions the deterministic importer can already read. A secret-only gate could become publicly abusable as soon as a key is configured. Directly converting the returned text into a recipe would remove the required human review checkpoint.
+
+**Trade-offs**
+
+The route still has no application-level owner identity or rate limiter. It therefore remains disabled and must not be enabled or deployed for public access until the recorded owner-authorization and abuse-control work is complete. Browser-reported duration is useful early feedback but is not a trustworthy server measurement; a real-call release must verify media duration server-side. Requiring `content-length` may reject unusual chunked clients, which is acceptable for this single browser workflow because it prevents unbounded multipart buffering.
+
+**Implementation effect**
+
+One API route, a small addition to the existing narration section, matching styles and one focused static wiring check were added. No dependency, database change, secret, enabled feature flag, real provider call, recipe save, commit, push or deployment was added.
+
+**Verification**
+
+The focused transcription suite passed four tests, including the Step 8 provider contract and the Step 9 upload, consent, disabled-feature, body-length and review wiring. The Vinext production build included `/api/transcribe-narration`. The complete test command then passed, and `git diff --check` reported no whitespace errors. No media left the machine and no API credit was used.
+
+**Consequences**
+
+Step 9 is complete in source but deliberately unusable against Groq. Step 10 remains the separately authorised paid-test checkpoint and must not proceed until current provider terms and pricing, Groq Zero Data Retention, hosting upload behaviour, server-side duration verification, owner authorization, rate limiting and an explicit spend cap are confirmed.
+
+**Reversal path**
+
+Delete `app/api/transcribe-narration/route.ts`, remove the upload/consent block and its styles, restore the Step 8 README wording, and remove the Step 9 wiring assertions. The manual transcript path and inert Step 8 adapter will continue to work unchanged.
+
+## 2026-09-30 — Keep Kitchen Katha private until public-reading and owner-management boundaries are separated
+
+**Context**
+
+Kitchen Katha is now intended to be publicly discoverable through Google, while the current application and README still describe one private owner collection. A whole-repository review assessed the interface, architecture, API routes, D1 model, security, accessibility, SEO, dependencies, tests and operating model without changing application source.
+
+**Options considered**
+
+1. Remove the current hosting login gate and expose the existing application unchanged.
+2. Keep the complete application owner-private indefinitely.
+3. Add a public read-only catalogue for explicitly published recipes beside an authenticated owner-only management workspace.
+4. Build a full multi-user platform with accounts, tenant ownership and user publishing.
+
+**Decision**
+
+Use option 3 as the target architecture, but keep the current hosting login gate until it is implemented and verified. Public visitors will be readers only; recipe creation, editing, deletion and Instagram importing will remain owner-only. Existing recipes must default to private, and public recipe queries must use an explicit field allowlist.
+
+Do not build option 4 unless visitors later need their own private drawers or publishing rights. Do not remove the current gate under option 1: the application routes have no identity or ownership check, and the single recipe table has no publication boundary.
+
+**Rationale**
+
+The current private design is coherent only while the external hosting gate is present. The CRUD API directly lists, creates, updates and deletes the shared D1 collection, and the importer performs parsing and outbound work without an application identity or rate boundary. A public read-only catalogue plus one owner workspace satisfies search discovery with much less schema, privacy, support and operational work than a multi-user service.
+
+Google also needs anonymously accessible, stable recipe URLs. The current login page, drawer-only detail dialog, and lack of per-recipe routes, Recipe JSON-LD, sitemap, canonical URLs and robots policy cannot provide that surface.
+
+**Rejected alternatives**
+
+Exposing the existing site unchanged would make private journal fields and destructive routes reachable to anonymous callers. Keeping everything private is safe as a holding state but does not meet the public-search goal. A full multi-user platform adds account recovery, tenant-isolation, deletion/export, moderation and abuse obligations before the product needs them.
+
+**Trade-offs**
+
+The chosen split requires an additive D1 migration, owner authentication, a central server-side authorization guard, public/private data-access paths, body and rate limits, stable slugs, SEO pages, privacy decisions, backup/restore checks and expanded integration/accessibility coverage. In return, it keeps the product one-owner, preserves the current cooking workflow, defaults existing data to private and remains reversible by restoring the full hosting gate.
+
+**Implementation effect**
+
+None in this review. Application source, schema, secrets, hosting visibility and deployed behaviour are unchanged. The review produced a sealed security report, a separate hardening portfolio and a Graphify architecture map. The current owner-private deployment remains the release boundary.
+
+**Verification**
+
+The production build completed successfully and all 24 Node tests passed. The anonymous hosted root displayed “Log in to access,” confirming that the current URL is not crawlable. The standard security scan reviewed all 44 tracked files and recorded one high-severity missing-authorization finding plus one medium-severity importer resource-abuse finding. `npm audit --omit=dev` reported no production-classified advisory, while the complete dependency tree reported 23 advisories, including 16 high-severity entries and direct framework/build packages that need an upgrade and reachability review. The current whole-project ESLint command and a single-file ESLint attempt did not finish after several minutes and were interrupted, so lint is not a passing gate for this review. Graphify produced a 259-node, 407-edge map across 16 communities; its diagnostic reported five dangling edges and seven collapsed endpoint pairs, so the graph is useful but not complete.
+
+**Consequences**
+
+Kitchen Katha is suitable for continued owner-private use and demonstration, but is not approved for an anonymous real-world launch. Public hosting work must begin with the public/private contract and authorization boundary, not with SEO metadata alone. The current login gate stays in place until anonymous read, authenticated write, privacy, migration, dependency, accessibility, SEO and operational gates pass.
+
+**Reversal path**
+
+Supersede this decision after the selected public-catalogue architecture is implemented and the two security findings are revalidated. If the public rollout exposes private data or write authority, restore the full hosting gate and unpublish all recipes; the proposed publication fields should remain additive so private data does not need to be rewritten.
+
+## 2026-10-06 — Complete Step 10 with a protected free Cloudflare transcription worker
+
+**Context**
+
+The Groq boundary from Steps 8–9 was mock-only and needed a provider key, data-control setup and a paid-test checkpoint. The owner asked for an alternate free option and authorised Codex to complete the external setup after signing in to Cloudflare.
+
+**Options**
+
+1. Keep the disabled Groq adapter and require manual account configuration.
+2. Install and operate a local Whisper runtime and model.
+3. Use the existing Cloudflare account's free Workers AI allocation through a small dedicated Worker.
+
+**Decision**
+
+Use option 3. A dedicated `kitchen-katha-transcription` Worker owns the `AI` binding and calls `@cf/openai/whisper-large-v3-turbo`. It accepts only authenticated POST requests, validates a single audio/video file up to 20 MB and five minutes, and returns only the transcript. Kitchen Katha forwards uploads through its existing owner-only server route using a shared secret stored as a Sites secret. The transcript remains editable and no recipe is parsed or saved automatically.
+
+**Rationale**
+
+This reuses Cloudflare's native binding, the existing Sites server route, browser `FormData` and native `fetch`; it adds no package or application-side AI SDK. The Worker endpoint is not usable without the shared secret, while the app upload route remains behind the current owner-only Site gate and keeps the existing explicit consent, size, duration and single-request boundaries.
+
+**Rejected alternatives**
+
+Groq remains a viable paid fallback but adds separate provider setup and data-retention decisions. Local Whisper avoids external media transfer but requires shipping or operating a large model/runtime that is not installed and does not fit the current hosted architecture.
+
+**Trade-offs**
+
+Cloudflare processes the selected media, the free daily allocation and model availability can change, and transcription can mishear accented speech, background music or Indian ingredient names. The editable review step is therefore mandatory. The shared-secret Worker is deliberately single-owner infrastructure; add per-user authorization and durable rate limiting before making the app public.
+
+**Implementation effect**
+
+The Groq adapter was replaced by `db/cloudflare-transcription.mjs`; the route now reads `CLOUDFLARE_TRANSCRIPTION_URL` and secret configuration; and the UI names Cloudflare Workers AI and its free daily allocation. Cloudflare Worker version `a9c8c28c` was saved with the AI binding and protected secret. Sites runtime environment revision 1 enables the feature for the owner-only project.
+
+**Verification**
+
+The focused four-test transcription suite passed. A 14.7-second macOS-generated cooking narration was sent to the protected Worker and returned a coherent transcript in one request, proving the real AI binding and authentication path. The complete application build, tests and production deployment are recorded in the task handoff after they run.
+
+**Consequences**
+
+Step 10 is no longer blocked on the owner manually creating a provider key. Kitchen Katha can offer real narration transcription without a paid API account while it remains owner-private; free allocation exhaustion must surface as a safe failure and never save a partial recipe.
+
+**Reversal path**
+
+Set `NARRATION_TRANSCRIPTION_ENABLED=false`, remove the three Sites runtime values, and delete the separate Worker after confirming no deployment uses it. The manual narration transcript path continues to work without any provider.
