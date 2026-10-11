@@ -2,8 +2,10 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages -- vinext's Next Link shim currently loads a second React renderer. */
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { Recipe, RecipeStatus } from "../db/recipes";
+import { splitPastedComments } from "../db/recipe-text.mjs";
+import { dataUrlToImageFile, sampleFrameTimes, toggleBoundedSelection } from "../db/video-frames.mjs";
 
 const mealTypes = [
   "Breakfast",
@@ -64,6 +66,13 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [busy, setBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [extractingFrames, setExtractingFrames] = useState(false);
+  const [readingImages, setReadingImages] = useState(false);
+  const [videoThumbnails, setVideoThumbnails] = useState<{ src: string; time: number }[]>([]);
+  const [selectedFrameTimes, setSelectedFrameTimes] = useState<number[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<{ id: string; src: string; label: string }[]>([]);
+  const [pastedComments, setPastedComments] = useState<string[]>([]);
+  const [selectedComments, setSelectedComments] = useState<number[]>([]);
   const [showCaptionFallback, setShowCaptionFallback] = useState(false);
   const [importDraft, setImportDraft] = useState<RecipeDraft | null>(null);
   const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -141,6 +150,11 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       if (!result.alreadySaved) setRecipes((current) => [result.recipe!, ...current]);
       setSelected(result.recipe);
       form.reset();
+      setVideoThumbnails([]);
+      setSelectedFrameTimes([]);
+      setImagePreviews([]);
+      setPastedComments([]);
+      setSelectedComments([]);
       setShowCaptionFallback(false);
       detailDialog.current?.showModal();
     } catch (error) {
@@ -184,6 +198,8 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       const result = await response.json() as { transcript?: string; error?: string };
       if (!response.ok || !result.transcript) throw new Error(result.error || "Narration transcription failed.");
       if (transcript) transcript.value = result.transcript;
+      file.value = "";
+      consent.checked = false;
       setImportMessage("Transcript ready. Review and edit it before adding the recipe.");
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : "Narration transcription failed.");
@@ -192,6 +208,131 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       media.removeAttribute("src");
       setTranscribing(false);
     }
+  };
+
+  const createVideoThumbnails = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    setVideoThumbnails([]);
+    setSelectedFrameTimes([]);
+    if (!file) return;
+    if (!file.type.startsWith("video/") || file.size > 20 * 1024 * 1024) {
+      event.currentTarget.value = "";
+      return setImportMessage("Choose a video file no larger than 20 MB.");
+    }
+
+    setImportMessage("");
+    setExtractingFrames(true);
+    const video = document.createElement("video");
+    const canvas = document.createElement("canvas");
+    const source = URL.createObjectURL(file);
+    try {
+      video.preload = "metadata";
+      video.muted = true;
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("Kitchen Katha could not read this video."));
+        video.src = source;
+      });
+      if (!Number.isFinite(video.duration) || video.duration <= 0 || video.duration > 300) {
+        throw new Error("Choose a video no longer than five minutes.");
+      }
+
+      canvas.width = 240;
+      canvas.height = Math.max(135, Math.round(240 * video.videoHeight / video.videoWidth));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("This browser cannot create video previews.");
+      const thumbnails = [];
+      for (const time of sampleFrameTimes(video.duration)) {
+        video.currentTime = time;
+        await new Promise<void>((resolve, reject) => {
+          video.onseeked = () => resolve();
+          video.onerror = () => reject(new Error("Kitchen Katha could not read this video."));
+        });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        thumbnails.push({ src: canvas.toDataURL("image/jpeg", 0.72), time });
+      }
+      setVideoThumbnails(thumbnails);
+      event.currentTarget.value = "";
+      setImportMessage("Local frame previews are ready. Nothing was uploaded.");
+    } catch (error) {
+      event.currentTarget.value = "";
+      setImportMessage(error instanceof Error ? error.message : "Kitchen Katha could not create video previews.");
+    } finally {
+      URL.revokeObjectURL(source);
+      video.removeAttribute("src");
+      setExtractingFrames(false);
+    }
+  };
+
+  const toggleFrame = (time: number) => {
+    const next = toggleBoundedSelection(selectedFrameTimes, time, imagePreviews.length);
+    if (next === selectedFrameTimes) return setImportMessage("Choose no more than four frames or images in total.");
+    setImportMessage("");
+    setSelectedFrameTimes(next);
+  };
+
+  const createImagePreviews = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.currentTarget.files || [])];
+    if (!files.length) return setImagePreviews([]);
+    if (files.length + selectedFrameTimes.length > 4 || files.some((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)) {
+      event.currentTarget.value = "";
+      return setImportMessage("Choose at most four frames or images in total, with each image no larger than 5 MB.");
+    }
+    try {
+      const previews = await Promise.all(files.map((file, index) => new Promise<{ id: string; src: string; label: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ id: `${file.name}-${file.size}-${file.lastModified}-${index}`, src: String(reader.result), label: file.name });
+        reader.onerror = () => reject(new Error("Kitchen Katha could not read one of these images."));
+        reader.readAsDataURL(file);
+      })));
+      setImagePreviews(previews);
+      event.currentTarget.value = "";
+      setImportMessage("Local image previews are ready. Nothing was uploaded.");
+    } catch (error) {
+      event.currentTarget.value = "";
+      setImagePreviews([]);
+      setImportMessage(error instanceof Error ? error.message : "Kitchen Katha could not read these images.");
+    }
+  };
+
+  const readSelectedImages = async () => {
+    const form = importForm.current;
+    const consent = form?.elements.namedItem("imageOcrConsent") as HTMLInputElement | null;
+    const imageText = form?.elements.namedItem("instagramImageText") as HTMLTextAreaElement | null;
+    const frames = selectedFrameTimes.map((time, index) => {
+      const preview = videoThumbnails.find((thumbnail) => thumbnail.time === time);
+      return preview && dataUrlToImageFile(preview.src, `reel-frame-${index + 1}.jpg`);
+    }).filter((file): file is File => Boolean(file));
+    const images = imagePreviews.map((preview) => dataUrlToImageFile(preview.src, preview.label));
+    const selectedImages = [...frames, ...images];
+    if (!selectedImages.length) return setImportMessage("Choose at least one frame or image to read.");
+    if (!consent?.checked) return setImportMessage("Confirm that the selected images may be sent for automatic reading.");
+
+    setImportMessage("");
+    setReadingImages(true);
+    try {
+      const body = new FormData();
+      selectedImages.forEach((image) => body.append("images", image));
+      body.set("creditConsent", "true");
+      const response = await fetch("/api/read-images", { method: "POST", body });
+      const result = await response.json() as { text?: string; error?: string };
+      if (!response.ok || !result.text) throw new Error(result.error || "Automatic image reading failed.");
+      if (imageText) imageText.value = result.text;
+      consent.checked = false;
+      setVideoThumbnails([]);
+      setSelectedFrameTimes([]);
+      setImagePreviews([]);
+      setImportMessage("Image text ready. Review and edit it before adding the recipe.");
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : "Automatic image reading failed.");
+    } finally {
+      setReadingImages(false);
+    }
+  };
+
+  const updatePastedComments = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setPastedComments(splitPastedComments(event.currentTarget.value));
+    setSelectedComments([]);
   };
 
   const openRecipe = (recipe: Recipe) => {
@@ -351,6 +492,10 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             <label className="field"><span className="sr-only">Instagram recipe link</span><input name="instagramUrl" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
             <button className="button button-primary" disabled={importBusy}>{importBusy ? "Creating card…" : showCaptionFallback ? "Create from text" : "Add to drawer"}</button>
           </div>
+          <div className="media-use-note" role="note">
+            <strong>Upload media you are allowed to use</strong>
+            <span>Choose only saved videos, audio or screenshots you created or have permission to process. Kitchen Katha never asks for Instagram passwords or downloads private posts.</span>
+          </div>
           <details className="import-evidence">
             <summary>Recipe is in the Reel narration?</summary>
             <label className="field">Narration transcript
@@ -358,30 +503,67 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </label>
             <small className="import-limit" id="narration-help">Paste the words spoken in the Reel, with Ingredients and Method headings when possible. This does not transcribe the video or use API credits.</small>
             <div className="transcription-box">
-              <label className="field">Or upload narration audio/video
+              <label className="field">Or upload saved narration audio/video
                 <input name="narrationFile" type="file" accept="audio/*,video/*" aria-describedby="transcription-help" />
               </label>
               <label className="credit-consent"><input name="transcriptionConsent" type="checkbox" /> I understand this sends the selected file to Cloudflare Workers AI for transcription.</label>
               <button className="button button-outline" type="button" disabled={transcribing} onClick={transcribeNarrationFile}>{transcribing ? "Transcribing…" : "Transcribe narration"}</button>
-              <small className="import-limit" id="transcription-help">One file, maximum 20 MB and five minutes. This uses Cloudflare's free daily AI allocation. Nothing is saved automatically; review the transcript before adding the recipe.</small>
+              <small className="import-limit" id="transcription-help">One file, maximum 20 MB and five minutes. This uses Cloudflare&apos;s free daily AI allocation. Nothing is saved automatically; review the transcript before adding the recipe.</small>
             </div>
           </details>
           <details className="import-evidence">
             <summary>Recipe is written in images or comments?</summary>
+            <div className="frame-preview-box">
+              <label className="field">Upload a saved Reel video for local thumbnails
+                <input type="file" accept="video/*" onChange={createVideoThumbnails} aria-describedby="frame-preview-help" />
+              </label>
+              <small className="import-limit" id="frame-preview-help">One video, maximum 20 MB and five minutes. Kitchen Katha creates six previews in this browser; it does not upload the video or use AI credits.</small>
+              {extractingFrames && <p className="frame-preview-status" role="status">Creating local previews…</p>}
+              {videoThumbnails.length > 0 && <div className="frame-preview-grid" aria-label="Local video frame previews">
+                {videoThumbnails.map((thumbnail, index) => <button className="frame-preview" type="button" key={thumbnail.time} aria-pressed={selectedFrameTimes.includes(thumbnail.time)} onClick={() => toggleFrame(thumbnail.time)}>
+                  <img src={thumbnail.src} alt={`Video frame preview ${index + 1}`} />
+                  <span>{Math.round(thumbnail.time)}s · {selectedFrameTimes.includes(thumbnail.time) ? "Selected" : "Select"}</span>
+                </button>)}
+              </div>}
+              <label className="field">Or upload saved screenshots or images
+                <input type="file" accept="image/*" multiple onChange={createImagePreviews} aria-describedby="image-preview-help" />
+              </label>
+              <small className="import-limit" id="image-preview-help">Choose up to four images, maximum 5 MB each. Selected frames and uploaded images share one four-image limit and stay in this browser.</small>
+              {imagePreviews.length > 0 && <div className="frame-preview-grid" aria-label="Local uploaded image previews">
+                {imagePreviews.map((preview) => <figure className="frame-preview" key={preview.id}>
+                  <img src={preview.src} alt={preview.label} />
+                  <figcaption>{preview.label}</figcaption>
+                </figure>)}
+              </div>}
+              {(selectedFrameTimes.length > 0 || imagePreviews.length > 0) && <p className="frame-preview-status" role="status">{selectedFrameTimes.length + imagePreviews.length} of 4 images ready for optional automatic reading.</p>}
+              <div className="ocr-actions">
+                <label className="credit-consent"><input name="imageOcrConsent" type="checkbox" /> I understand this sends the selected images to an external image-reading service and may use API credits.</label>
+                <button className="button button-outline" type="button" disabled={readingImages || selectedFrameTimes.length + imagePreviews.length === 0} onClick={readSelectedImages}>{readingImages ? "Reading images…" : "Read selected images — uses API credits"}</button>
+                <small className="import-limit">One request for up to four images. Returned text is editable and nothing is saved automatically. Automatic reading remains unavailable until a protected provider is configured.</small>
+              </div>
+            </div>
             <label className="field">Text found in images
               <textarea name="instagramImageText" rows={6} maxLength={50000} aria-describedby="image-text-help" placeholder={"Recipe title\nIngredients:\n…\nMethod:\n…"} />
             </label>
             <small className="import-limit" id="image-text-help">Paste only the recipe words you can see. Kitchen Katha does not inspect the images or use OCR credits.</small>
-            <label className="field import-comments">Useful comments
-              <textarea name="instagramComments" rows={4} maxLength={1500} aria-describedby="comments-help" placeholder="e.g. Reduce the heat after adding yoghurt." />
+            <label className="field import-comments">Paste comments, one per line
+              <textarea rows={4} maxLength={1500} onChange={updatePastedComments} aria-describedby="comments-help" placeholder={"Reduce the heat after adding yoghurt.\nAdd a splash of water if the masala catches."} />
             </label>
-            <small className="import-limit" id="comments-help">Comments are saved as “Comments (unverified)” in your notes and never treated as ingredients or method steps.</small>
+            <input type="hidden" name="instagramComments" value={selectedComments.map((index) => pastedComments[index]).join("\n")} />
+            {pastedComments.length > 0 && <fieldset className="comment-picker">
+              <legend>Select useful comments</legend>
+              {pastedComments.map((comment, index) => <label key={`${index}-${comment}`}>
+                <input type="checkbox" checked={selectedComments.includes(index)} onChange={() => setSelectedComments((current) => current.includes(index) ? current.filter((value) => value !== index) : [...current, index])} />
+                <span>{comment}</span>
+              </label>)}
+            </fieldset>}
+            <small className="import-limit" id="comments-help">Only selected comments are saved as “Comments (unverified)” in your notes. They never become ingredients or method steps.</small>
           </details>
           {showCaptionFallback && <label className="field import-caption">Paste the Instagram caption
             <textarea name="instagramCaption" rows={8} maxLength={100000} placeholder={"Recipe title\nIngredients for 2:\n…\nHow to make:\n…"} />
           </label>}
           <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste its caption, narration transcript or text found in images and the same formatter will handle it.</small>
-          {importMessage && <p className={importMessage.startsWith("Transcript ready.") ? "form-error form-success" : "form-error"} role={importMessage.startsWith("Transcript ready.") ? "status" : "alert"}>{importMessage}</p>}
+          {importMessage && <p className={/^(Transcript|Image text|Local (frame|image) previews) ready\./.test(importMessage) ? "form-error form-success" : "form-error"} role={/^(Transcript|Image text|Local (frame|image) previews) ready\./.test(importMessage) ? "status" : "alert"}>{importMessage}</p>}
         </form>
 
         <div className="toolbar">
@@ -592,7 +774,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
         </form>
       </dialog>
 
-      <dialog className="recipe-dialog detail-dialog" ref={detailDialog} onClose={() => setSelected(null)}>
+      <dialog className="recipe-dialog detail-dialog" ref={detailDialog} aria-modal="true" aria-labelledby="recipe-detail-title" onClose={() => setSelected(null)}>
         {selected && (
           <article>
             <div className={`detail-hero art-${(selected.mealTypes[0] || "Other").toLowerCase()}`}>
@@ -602,7 +784,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </div>
             <div className="detail-body">
               <p className="card-kicker"><span>{selected.cuisine} · {selected.diet}</span><SpiceLevel level={selected.spiceLevel} /></p>
-              <h2>{selected.title}</h2>
+              <h2 id="recipe-detail-title">{selected.title}</h2>
               {selected.description && <p className="detail-description">{selected.description}</p>}
               <div className="detail-facts">
                 <span>{selected.prepMinutes > 0 ? <><b>{selected.prepMinutes}</b> min prep</> : <b>Prep not stated</b>}</span>

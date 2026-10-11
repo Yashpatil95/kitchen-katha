@@ -1,5 +1,8 @@
 import { InstagramImportError, importInstagramRecipe } from "../../../db/instagram-recipe.mjs";
 import { createImportedRecipe, findRecipeBySourceUrl } from "../../../db/recipes";
+import { boundedJson, RequestBodyError } from "../bounded-json.mjs";
+
+const MAX_JSON_BYTES = 1_100_000;
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +14,9 @@ export async function POST(request: Request) {
       commentText?: unknown;
     };
     try {
-      payload = await request.json() as typeof payload;
-    } catch {
+      payload = await boundedJson(request, MAX_JSON_BYTES) as typeof payload;
+    } catch (error) {
+      if (error instanceof RequestBodyError) throw error;
       throw new InstagramImportError("invalid_request", "Send an Instagram link to import.", {
         status: 400,
         stage: "validate",
@@ -30,6 +34,9 @@ export async function POST(request: Request) {
     });
     return Response.json(result, { status: result.alreadySaved ? 200 : 201 });
   } catch (error) {
+    if (error instanceof RequestBodyError) {
+      return Response.json({ error: `${error.message} Nothing was saved.`, code: "invalid_request" }, { status: error.status });
+    }
     const known = error instanceof InstagramImportError
       ? error
       : new InstagramImportError("unexpected_error", "This recipe could not be imported.", { status: 500, stage: "unknown" });

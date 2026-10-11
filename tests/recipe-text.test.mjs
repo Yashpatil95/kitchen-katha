@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mergeRecipeEvidence, parseRecipeText, RecipeTextError } from "../db/recipe-text.mjs";
+import { mergeRecipeEvidence, parseRecipeText, RecipeTextError, splitPastedComments } from "../db/recipe-text.mjs";
 
 const recipeText = `Paneer Tikka Wrap 🌯
 A quick high-protein Indian dinner.
@@ -138,4 +138,8 @@ Skip simmering.`,
     () => mergeRecipeEvidence({ commentText: "Ingredients:\n2 cups sugar\nMethod:\nSkip simmering." }),
     (error) => error instanceof RecipeTextError && error.code === "empty_text",
   );
+});
+
+test("splits pasted comments into selectable non-empty lines", () => {
+  assert.deepEqual(splitPastedComments("  Use low heat.\n\nAdd water if needed.  \n"), ["Use low heat.", "Add water if needed."]);
 });

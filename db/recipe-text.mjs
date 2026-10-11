@@ -15,6 +15,11 @@ export class RecipeTextError extends Error {
   }
 }
 
+export const splitPastedComments = (value) => String(value)
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter(Boolean);
+
 const cleanLine = (line) =>
   line
     .replace(/^[\s•●▪◦‣·–—*-]+/, "")

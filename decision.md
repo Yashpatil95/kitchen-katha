@@ -932,3 +932,622 @@ Step 10 is no longer blocked on the owner manually creating a provider key. Kitc
 **Reversal path**
 
 Set `NARRATION_TRANSCRIPTION_ENABLED=false`, remove the three Sites runtime values, and delete the separate Worker after confirming no deployment uses it. The manual narration transcript path continues to work without any provider.
+
+## 2026-10-06 — Complete Step 11 by verifying the enabled private mobile flow
+
+**Context**
+
+Step 11 called for enabling narration in the private deployment and verifying it from a phone. The alternate free-provider work in Step 10 had already enabled and deployed the feature, so another deployment would not change behaviour.
+
+**Options**
+
+1. Redeploy the unchanged source and environment configuration.
+2. Change application code solely to create a new release marker.
+3. Verify the existing live version, its environment gate and its phone-sized owner workflow without spending another transcription allocation.
+
+**Decision**
+
+Use option 3. Keep owner-private Sites version 12 and environment revision 1 unchanged. Verify the production recipe drawer while signed in as the owner at a 390 × 844 viewport, expand the narration workflow and confirm the file picker, explicit Cloudflare consent, transcription action, file limits and review-before-save copy are reachable.
+
+**Rationale**
+
+Step 10 already proved the protected Worker with a real synthetic-media request and deployed the enabled configuration. Repeating that work would consume allowance without testing a different contract. The remaining Step 11 risk was whether the enabled controls were usable in the live mobile layout.
+
+**Rejected alternatives**
+
+An unchanged redeployment adds operational risk but no evidence. A second real transcription would re-test the provider path rather than the mobile interface and would spend part of the free daily allocation unnecessarily.
+
+**Trade-offs**
+
+The verification used a browser at a phone viewport rather than physical iOS or Android hardware. It proves the responsive production layout and authenticated control path, but not device-specific file-picker behaviour, microphone capture or mobile-network performance.
+
+**Implementation effect**
+
+No application code, dependency, schema, Worker, secret, environment value or deployed version changed. Documentation now records the completed mobile checkpoint.
+
+**Verification**
+
+The Sites configuration reported `NARRATION_TRANSCRIPTION_ENABLED=true`, the Cloudflare Worker URL and a stored secret at environment revision 1. The live Site reported owner-only custom access and version 12. In the authenticated production recipe drawer at 390 × 844, the narration section expanded and exposed the upload, consent, transcription and review controls with the intended 20 MB and five-minute limits.
+
+**Consequences**
+
+Automatic narration transcription is complete for owner-private use. Step 12 may begin the separate local Reel-frame thumbnail workflow. Public access remains blocked by the existing authorization, rate-limit and server-side duration-verification launch gates.
+
+**Reversal path**
+
+No runtime reversal is needed because this step changed documentation only. Disable narration using the Step 10 reversal path if the private feature must be withdrawn.
+
+## 2026-10-06 — Create Reel-frame thumbnails locally for Step 12
+
+**Context**
+
+The next image-text phase needs a cheap way to inspect an owner-supplied Reel before any frame selection or OCR exists. The step must not upload media or consume AI credits.
+
+**Options**
+
+1. Add a video-processing dependency or server endpoint.
+2. Extract frames with the browser's native video and canvas APIs.
+3. Wait and combine thumbnail extraction with selectable frames and OCR.
+
+**Decision**
+
+Use option 2. The image-evidence section accepts one local video up to 20 MB and five minutes, samples six evenly spaced moments away from the beginning and end, and renders compressed JPEG previews in a responsive grid. Object URLs are revoked after processing. The file input has no import payload role, and no network request is made.
+
+**Rationale**
+
+The browser already decodes the formats it can play and canvas can create small previews without a package, server, persistence or media-transfer boundary. Keeping Step 12 display-only makes the next frame-selection decision independently testable.
+
+**Rejected alternatives**
+
+FFmpeg or another dependency is unnecessary for the supported browser-local workflow. Server extraction would upload private media earlier than required. Combining selection and OCR would exceed this checkpoint and make credit behaviour harder to audit.
+
+**Trade-offs**
+
+Supported formats depend on the user's browser, seeking can take time on large or poorly indexed videos, and six evenly spaced frames can miss brief text. Step 13 can add bounded selection and screenshots without changing this local extraction boundary.
+
+**Implementation effect**
+
+`db/video-frames.mjs` defines the deterministic sample times. `app/recipe-journal.tsx` performs local video decoding and canvas capture, while `app/globals.css` presents the previews. No dependency, API route, database field, secret or hosted environment value was added.
+
+**Verification**
+
+The focused 19-test set passed, including even frame sampling and source checks for native video/canvas use with no frame-upload request. The Vinext production build passed. `git diff --check` passed before documentation was updated and is rerun at handoff.
+
+**Consequences**
+
+Step 12 is complete locally. Step 13 may make at most four frames selectable and accept up to four screenshots or images. No source change is published or deployed at this non-checkpoint step.
+
+**Reversal path**
+
+Remove the local video input, thumbnail state/handler, preview styles, helper and focused test. Narration transcription and manual image-text entry continue unchanged.
+
+## 2026-10-06 — Bound local frame and screenshot selection for Step 13
+
+**Context**
+
+Step 12 created six local Reel-frame previews but offered no way to choose useful frames. The planned OCR boundary needs a small, explicit image set and must retain the zero-credit manual-text path.
+
+**Options**
+
+1. Select every generated frame automatically.
+2. Give generated frames and uploaded screenshots separate four-image allowances.
+3. Enforce one shared limit of four selected frames or uploaded screenshots and keep all previews local.
+
+**Decision**
+
+Use option 3. Generated frame cards are accessible toggle buttons. Up to four screenshots or images, each no larger than 5 MB, can also be previewed. Selected frames and uploaded images share a single four-image ceiling, and the existing manual image-text box remains directly below the previews.
+
+**Rationale**
+
+One combined bound matches the later single-batch OCR design and prevents an apparently valid UI state from exceeding its future request limit. Native `FileReader` is already available, so screenshot previews require no storage, dependency or object-URL lifecycle.
+
+**Rejected alternatives**
+
+Automatic selection would spend later OCR capacity on irrelevant frames. Separate allowances could produce eight images for a four-image endpoint. Adding deletion, reordering or persistent media storage is unnecessary before OCR exists.
+
+**Trade-offs**
+
+Choosing a new screenshot set replaces the previous set, and uploaded images cannot yet be reordered individually. The four-image cap may require the owner to choose the clearest recipe text rather than preserve every visual.
+
+**Implementation effect**
+
+The existing frame helper now owns the bounded toggle rule. The recipe journal tracks selected frame times and local screenshot data URLs, presents selected state and a combined count, and clears transient previews after a successful import. No request payload, API route, database field, dependency or hosted environment value changed.
+
+**Verification**
+
+Sixteen focused tests passed, including combined-limit selection, deselection, native video/canvas wiring and the local multiple-image input. The Vinext production build and `git diff --check` passed before documentation was updated and are rerun at handoff.
+
+**Consequences**
+
+Step 13 is complete locally. Step 14 may add a disabled, mock-tested vision/OCR server boundary that accepts only this bounded image batch. No media currently leaves the browser.
+
+**Reversal path**
+
+Remove the screenshot picker, selected-frame state and toggle helper while retaining Step 12's display-only thumbnails and the manual image-text field.
+
+## 2026-10-06 — Add a disabled, mocked OCR boundary for Step 14
+
+**Context**
+
+Steps 12–13 produce a bounded local set of up to four recipe images. Step 14 needs a server contract for later OCR without exposing a callable paid feature, choosing a provider prematurely or sending real media.
+
+**Options**
+
+1. Put provider-specific OCR logic directly in the recipe page.
+2. Add a provider-neutral server adapter and disabled route, verified through injected mock responses.
+3. Wait and combine the server contract with the credit-using interface.
+
+**Decision**
+
+Use option 2. `readRecipeImages` accepts one to four `image/*` files, limits each to 5 MB and the complete batch to 20 MB, sends them together in one authenticated multipart request, and accepts at most 50,000 characters from a response capped at 1 MB. `/api/read-images` rejects disabled configuration and oversized request bodies before multipart parsing, requires explicit credit consent, and is inert without three server environment values.
+
+**Rationale**
+
+This mirrors the already tested narration boundary using native `fetch`, `FormData`, `Blob`, `AbortSignal` and response streaming. Dependency injection proves the provider contract without a real endpoint, account, secret, upload or credit charge.
+
+**Rejected alternatives**
+
+Client-side credentials would expose secrets. A provider SDK adds a dependency before a provider is selected. Combining route and UI would make it easier to trigger an unintended call and exceed the agreed one-step scope.
+
+**Trade-offs**
+
+The contract assumes a future protected endpoint returns JSON with one `text` field. A selected provider may require a thin translation Worker, and image dimensions or decompression cost are not yet validated beyond MIME and byte limits. Those checks must be reconsidered before enabling a public endpoint.
+
+**Implementation effect**
+
+`db/image-ocr.mjs` owns validation, one-request multipart forwarding and response bounds. `app/api/read-images/route.ts` owns the disabled feature gate, body-size check and explicit-consent boundary. No client wiring, dependency, schema, secret, environment value or deployment was added.
+
+**Verification**
+
+Eleven focused tests passed. They prove disabled configuration performs no call, invalid count/type/size batches perform no call, two mock images travel in one protected request, and the route checks configuration, content length, consent and all image parts. The Vinext build included `/api/read-images` and completed successfully. `git diff --check` passed before documentation was updated and is rerun at handoff.
+
+**Consequences**
+
+Step 14 is complete as an inert boundary. Step 15 may add an explicit credit-warning control that converts the four local previews into files, calls this route once, and places returned text in the existing editable image-text field. The route must remain disabled until an approved provider endpoint and secret exist.
+
+**Reversal path**
+
+Delete the image OCR adapter, disabled route and focused tests. Steps 12–13 local previews and manual image-text entry remain unchanged.
+
+## 2026-10-06 — Wire explicit OCR consent and editable review for Step 15
+
+**Context**
+
+Step 14 created a disabled, mock-tested OCR route but no user action could reach it. Step 15 needs an explicit credit-warning control and editable result while preserving the rule that selecting media alone never triggers a request.
+
+**Options**
+
+1. Read images automatically when selected.
+2. Add a separate consent checkbox and button that sends one bounded batch, then fills the manual image-text field.
+3. Merge OCR into the final Add to drawer submission.
+
+**Decision**
+
+Use option 2. The interface converts selected local previews back into browser `File` objects, requires a separate acknowledgement that an external image-reading service may use API credits, sends all selected images to `/api/read-images` in one request, and writes returned text into `instagramImageText`. The normal recipe import remains a separate action.
+
+**Rationale**
+
+An explicit button makes cost and media transfer visible at the moment they occur. Reusing the existing editable field keeps OCR output in the caption → transcript → image-text evidence order and prevents unreviewed text from becoming trusted recipe data.
+
+**Rejected alternatives**
+
+Selection-triggered OCR could spend credits accidentally. Folding OCR into Add to drawer would hide the external call and make retry behaviour ambiguous. A second OCR-specific editor would duplicate the existing manual field.
+
+**Trade-offs**
+
+The control is visible but returns the disabled-service message until protected provider configuration exists. Data-URL conversion temporarily duplicates selected images in browser memory, bounded by the existing four-image and byte limits.
+
+**Implementation effect**
+
+The local image helper converts safe preview data URLs into image files. The recipe journal adds one busy state, consent checkbox, credit-labelled button and one request handler. Successful OCR text remains editable and is never parsed or saved automatically. No dependency, schema, provider, secret, environment value or deployment was added.
+
+**Verification**
+
+Twenty-two focused tests passed, including data-URL conversion, consent and credit-warning wiring, one OCR request, editable-field assignment and the prior route/batch limits. The Vinext production build passed. No external endpoint was configured or called, and no AI credit was used. `git diff --check` passed before documentation was updated and is rerun at handoff.
+
+**Consequences**
+
+Step 15 is complete locally and remains safe by default. Step 16 is the separately authorised real-image test and must specify a maximum of four images and an explicit spending cap after current provider pricing, privacy and image handling are confirmed.
+
+**Reversal path**
+
+Remove the OCR consent/action UI, request handler and data-URL conversion helper. The disabled Step 14 route and zero-credit manual image-text workflow continue unchanged.
+
+## 2026-10-06 — Validate Cloudflare vision OCR within the Step 16 £1 cap
+
+**Context**
+
+Step 15 left automatic image reading provider-disabled. Step 16 authorised one real image batch, no more than four images, with a maximum cash spend of £1. Current pricing, data use and the actual provider response needed evidence before any production configuration.
+
+**Options**
+
+1. Enable the live Site and test through the owner interface.
+2. Use an isolated Cloudflare Worker for one synthetic image, then disable it.
+3. Stop after mocked tests and estimate quality from documentation.
+
+**Decision**
+
+Use option 2 with one 1200 × 1200 synthetic Paneer Tikka image and `@cf/meta/llama-3.2-11b-vision-instruct`. Accept the required Meta model terms after explicit owner approval, send one OCR batch, compare every visible recipe line, inspect account usage, and replace the temporary handler with an HTTP 410 response. Do not configure or deploy the production Site.
+
+**Rationale**
+
+An isolated test measures the exact provider contract and Indian-recipe content while avoiding personal data, Instagram media and production risk. Cloudflare documents a daily free Workers AI allocation and says customer content is not used to train or improve its services without explicit consent.
+
+**Rejected alternatives**
+
+Testing in production would require a persistent secret and could expose an unfinished feature. Mock-only evidence cannot measure OCR accuracy. A larger or real Instagram batch was unnecessary for the first paid-provider checkpoint.
+
+**Trade-offs**
+
+One clean synthetic image proves basic printed-text extraction, not handwriting, motion blur, decorative fonts or four-image ordering. The account usage view can lag; at the recorded check it displayed `0/10k` neurons used today rather than a per-request image-model figure.
+
+**Implementation effect**
+
+No application code, environment variable, production Worker or Site deployment changed. The existing provider-neutral `{ text }` contract is compatible with a thin Cloudflare adapter. The isolated `kitchen-katha-ocr-test` Worker now returns HTTP 410 for every request; its AI binding remains attached but its active code cannot invoke it.
+
+**Verification**
+
+The sole OCR batch returned all 14 meaningful source lines exactly: title, headings, five ingredient quantities and four numbered method steps; it added Markdown emphasis and bullets only. Measured content accuracy was 100% on this fixture. The Cloudflare dashboard reported `0/10k` neurons used today, so observed cash spend was £0.00 against the £1 cap. A direct request after shutdown returned HTTP 410 with `{"error":"Step 16 test complete"}`. The focused tests, production build and whitespace check are rerun at handoff.
+
+**Consequences**
+
+Step 16 is complete as a provider checkpoint, not a production release. Cloudflare is a technically viable first OCR provider for clear screenshots. A later explicit step must create the protected adapter/secret, configure the three server variables, deploy, and validate poor-quality and multi-image cases before users can rely on it.
+
+**Reversal path**
+
+Delete the isolated Cloudflare test Worker and its binding after owner confirmation. No repository rollback is needed because Step 16 changed documentation only.
+
+## 2026-10-07 — Make pasted comments selectively useful for Step 18
+
+**Context**
+
+The manual comments fallback accepted one text block, so an owner had to edit unwanted lines before importing. Step 18 requires each pasted comment to be visible separately and explicitly selected before it can enter recipe notes.
+
+**Options**
+
+1. Save every pasted line automatically.
+2. Parse non-empty lines locally into a checkbox list and submit only selected lines.
+3. Retrieve comments from Instagram automatically.
+
+**Decision**
+
+Use option 2. Split pasted text on line boundaries in the browser, display each non-empty line as an unchecked option, and send only checked lines through the existing bounded `commentText` field.
+
+**Rationale**
+
+The existing API and evidence merger already keep comments out of ingredients and method steps. A small local selector completes the review workflow without a Meta connection, new endpoint, dependency, or external request.
+
+**Rejected alternatives**
+
+Automatic selection weakens the review boundary. Automatic retrieval belongs to the separately gated professional-account phase and cannot cover arbitrary creators' posts.
+
+**Trade-offs**
+
+One pasted line is treated as one comment, so multi-line comments must be condensed before pasting. Changing the pasted text clears the current selection to prevent stale lines from being submitted.
+
+**Implementation effect**
+
+Add one line-splitting helper, two small client state values, an accessible checkbox fieldset, a hidden selected-comments form value and minimal styling. The server contract and 1,500-character limit remain unchanged.
+
+**Verification**
+
+All 39 tests and the Vinext production build passed. Focused ESLint completed with only the two existing native local-preview `<img>` warnings, and `git diff --check` passed. The local preview server could not be reached from the sandboxed browser namespace, so no interactive browser claim is made.
+
+**Consequences**
+
+Step 18 is complete locally and uses no runtime credits. Step 17 OCR deployment remains paused before secret creation, and Step 19 remains a separate research-only eligibility check.
+
+**Reversal path**
+
+Restore the single named comments textarea and remove the line helper, selection state, checkbox fieldset and styles. The existing server-side unverified-comments boundary remains valid.
+
+## 2026-10-07 — Limit official Meta comment retrieval to eligible owned media for Step 19
+
+**Context**
+
+Step 19 requires checking whether automatic Instagram comment retrieval is officially available for Kitchen Katha before building a client or changing an account. The intended recipe workflow often starts from public Reels posted by other creators, while Meta's supported API is scoped to professional accounts managing their own presence.
+
+**Options**
+
+1. Treat every public Instagram URL as eligible for automatic comment retrieval.
+2. Use Instagram API with Facebook Login and require a linked Facebook Page.
+3. Prefer Instagram API with Instagram Login for a Business or Creator account, but enable comment retrieval only after the submitted URL is matched to media owned by that authenticated account.
+4. Keep pasted comments as the only workflow.
+
+**Decision**
+
+Use option 3 only for eligible owned media and retain option 4 for all other recipes. Step 20 must not build a general-purpose comments importer. Its mocked client is eligible to proceed only after the owner confirms a Business or Creator profile and confirms that the target recipe posts are published by that same profile.
+
+**Rationale**
+
+Meta's current official Instagram Login documentation supports Business and Creator accounts, does not require a linked Facebook Page, and uses `instagram_business_basic` plus `instagram_business_manage_comments` for the required read boundary. Meta describes comment management as operating on the professional account's media; it does not offer unrestricted comment access for arbitrary public creators' posts.
+
+**Rejected alternatives**
+
+Public-page scraping is brittle and would evade the intended account and media ownership boundary. Facebook Login adds a linked Page and extra permissions without helping the chosen single-owner use case. Removing pasted comments would leave third-party recipes with no reliable comments workflow.
+
+**Trade-offs**
+
+Automatic comments will cover only recipes posted by the connected professional account, which is narrower than the main discovery workflow. The owner must maintain a Meta app and OAuth token if this optional path is later enabled. App review or elevated access may be necessary before users outside app roles can connect.
+
+**Implementation effect**
+
+Document a ten-item setup checklist and the exact eligibility gate. Prefer Instagram Login, request only `instagram_business_basic` and `instagram_business_manage_comments`, store tokens server-side, resolve only authenticated-account media, use bounded cursor pagination and present retrieved comments unchecked. No application code, Meta app, account setting, OAuth connection, token, API request or deployment changes in Step 19.
+
+**Verification**
+
+The requirements were checked on 2026-10-07 against Meta's current official Instagram API materials: Instagram Login is limited to professional accounts, does not require a linked Facebook Page, and exposes the current `instagram_business_*` scopes; Facebook Login requires a linked Page and cannot access consumer accounts. The repository and project records contain no verified account type or proof that target recipe media is owned by the account, so eligibility remains conditional rather than assumed.
+
+**Consequences**
+
+Step 19 is complete as a no-cost research and setup checkpoint. Step 20 is blocked for the general arbitrary-creator workflow and may proceed only as an owned-media client after the two owner confirmations. The Step 18 pasted-comments selector remains the production-safe general solution.
+
+**Reversal path**
+
+Remove the Step 19 README checklist and this decision entry. No runtime or account rollback is required because no external state changed.
+
+## 2026-10-10 — Stop Step 20 because the account and media are ineligible
+
+**Context**
+
+The owner confirmed that their Instagram account is private and that Kitchen Katha will mostly import public recipe links from Business or Creator accounts owned by other people. Step 20 was explicitly conditional on the connected professional account owning the target media.
+
+**Options**
+
+1. Build the mocked Meta comments client despite the failed eligibility gate.
+2. Ask the owner to convert or expose their private account even though doing so would not grant access to other creators' media.
+3. Stop Step 20 and retain the zero-cost pasted-comments selector for third-party recipes.
+
+**Decision**
+
+Use option 3. Do not implement Step 20 for the current workflow.
+
+**Rationale**
+
+Meta's official Instagram API supports professional accounts managing their own media; the public status or professional type of a different creator's account does not transfer comment access to Kitchen Katha. Converting the owner's account would therefore add account and token complexity without solving the intended third-party recipe use case.
+
+**Rejected alternatives**
+
+Building a knowingly unusable client would create dead code and invite a false promise in the interface. Scraping public comments or reusing Instagram cookies would be brittle and violate the project's privacy and access-control boundary.
+
+**Trade-offs**
+
+Comments from third-party recipe posts must be pasted manually. The existing selector makes that review explicit and uses no Meta connection or runtime credits.
+
+**Implementation effect**
+
+No application code, dependency, account setting, permission, token, API request or deployment changes. Step 20 remains unimplemented by design.
+
+**Verification**
+
+The eligibility conclusion combines the owner's 2026-10-10 account and media-ownership confirmation with Meta's current official Instagram API documentation. `git diff --check` is the only relevant repository check because this decision changes documentation only.
+
+**Consequences**
+
+The Phase D Meta connection path stops at Step 19 for the current product. Steps 21 and 22 are also inapplicable unless the use case later changes to recipes posted by an owner-controlled Business or Creator account.
+
+**Reversal path**
+
+If an owner-controlled professional account later publishes the target recipes, re-run Step 19 against current Meta requirements and then reconsider Step 20 as an owned-media-only client.
+
+## 2026-10-10 — Make permitted saved-media upload explicit for Step 23
+
+**Context**
+
+Kitchen Katha already has bounded local inputs for narration audio/video, saved Reel video frame extraction and screenshots. Step 23 requires a clearly labelled path for media the owner is allowed to use without adding Instagram authentication or private-post retrieval.
+
+**Options**
+
+1. Add a second upload system dedicated to saved media.
+2. Reuse the existing inputs and place one clear permission boundary before them.
+3. Download media directly from Instagram links.
+
+**Decision**
+
+Use option 2. Label the existing route **Upload media you are allowed to use**, state that files must be created by the user or processed with permission, and rename each file input to identify saved media explicitly.
+
+**Rationale**
+
+The existing controls already enforce the relevant file and duration limits and keep selection local until a separate transcription or image-reading consent action. Reusing them completes the user-facing requirement without duplicate state, storage or dependencies.
+
+**Rejected alternatives**
+
+A second uploader would duplicate working controls. Direct Instagram downloading would cross the privacy boundary established by the multimodal plan and would not make private or third-party media authorised.
+
+**Trade-offs**
+
+Kitchen Katha relies on the user to determine whether they have permission to process a saved file. It cannot independently verify copyright or consent.
+
+**Implementation effect**
+
+Add one visible permission notice, rename three existing labels, add minimal styling and one source-level regression check. File handling, limits, local previews, processing consent, APIs and storage remain unchanged.
+
+**Verification**
+
+On 2026-10-10 the focused Instagram importer test passed 14/14, the full Node suite passed 40/40, the Vinext production build passed, `git diff --check` passed, and focused ESLint reported zero errors with the two existing native local-preview `<img>` warnings.
+
+**Consequences**
+
+Step 23 provides an explicit permitted-media entry path without requesting credentials, downloading Instagram content, storing raw media or spending credits. Step 24 may reuse these same inputs for processing; it must not create another uploader.
+
+**Reversal path**
+
+Remove the permission notice and restore the three previous labels. No data or account rollback is required.
+
+## 2026-10-10 — Reuse the existing processing routes for Step 24
+
+**Context**
+
+Step 24 requires permitted saved media to flow through the narration and selected-image workflows without requesting Instagram passwords or session cookies. The Step 23 inputs were intentionally labels over the upload controls built and bounded in earlier steps.
+
+**Options**
+
+1. Add another routing layer or duplicate upload controls for Step 24.
+2. Reuse and verify the existing narration, frame-selection and image-reading paths.
+3. Authenticate to Instagram or download media from a submitted post URL.
+
+**Decision**
+
+Use option 2. No application-code change is needed: the existing controls already implement the complete Step 24 routing contract.
+
+**Rationale**
+
+The narration file is validated locally, sent to `/api/transcribe-narration` only after explicit consent, and returned into the editable transcript field. A saved video is decoded locally into six frames; selected frames and saved screenshots share the four-image limit and are sent to `/api/read-images` only after separate consent. Returned image text enters the editable image-text field. Both fields then pass through the existing bounded recipe-evidence parser. Browser object URLs are revoked after media inspection, and no client path reads Instagram credentials or cookies.
+
+**Rejected alternatives**
+
+Duplicate routing would create two contracts for the same files. Instagram login, password handling, cookie reuse or automatic private-media downloading is outside the approved privacy boundary and would not establish permission to process third-party media.
+
+**Trade-offs**
+
+Narration and image reading remain separate deliberate actions, so a video containing both evidence types requires two user choices. This is preferable to silently making multiple processing calls and spending credits.
+
+**Implementation effect**
+
+No runtime code, dependency, API, data model or interface change. Step 24 is satisfied by the existing protected transcription route, local frame extractor, protected image-reading route and shared recipe-text parser.
+
+**Verification**
+
+On 2026-10-10 all 14 focused transcription, frame and image-reading tests passed, the full Node suite passed 40/40, the Vinext production build passed and `git diff --check` passed. Source inspection confirms that the client calls only Kitchen Katha's same-origin processing routes and contains no cookie or credential retrieval path.
+
+**Consequences**
+
+Step 24 is complete without new code or credits. Step 25 can now verify raw-media disposal and absence from D1 and logs without changing this routing design.
+
+**Reversal path**
+
+No runtime reversal is required. Remove this decision entry if the documented trace is later found incorrect and address the actual missing route at that time.
+
+## 2026-10-10 — Discard raw media after processing for Step 25
+
+**Context**
+
+Step 25 requires proving that uploaded audio, video and images are discarded after processing and never stored in D1 or application logs. The server routes were already request-scoped, but browser file inputs and generated previews remained in memory until the complete import form was submitted or unmounted.
+
+**Options**
+
+1. Accept browser-lifetime retention because it is not durable storage.
+2. Clear raw selections and previews immediately after their last successful use and add a static privacy regression check.
+3. Add permanent media storage with later deletion jobs.
+
+**Decision**
+
+Use option 2. Clear the narration file and consent after a transcript is returned, clear original video and image input selections after local preview generation, clear derived frame/image previews and OCR consent after image text is returned, and continue revoking temporary object URLs.
+
+**Rationale**
+
+Immediate browser cleanup narrows the lifetime of sensitive media without affecting the editable text result. The D1 schema contains only structured recipe fields, and neither processing route imports recipe storage or logs request content. Permanent media storage is unnecessary for a text-extraction workflow.
+
+**Rejected alternatives**
+
+Keeping raw media for the full form lifetime is avoidable retention. R2 or D1 storage would add cost, deletion complexity and privacy risk while providing no requested product value.
+
+**Trade-offs**
+
+After successful processing, retrying with the same source requires selecting the file again. Failed processing keeps the selection so the owner can retry without unnecessary file picking.
+
+**Implementation effect**
+
+Add browser cleanup at the four existing success boundaries and one dependency-free privacy test covering cleanup, D1 schema exclusions, absence of storage imports/writes and absence of processing logs. Text transcripts, OCR results and final structured recipe data remain available for review and saving.
+
+**Verification**
+
+On 2026-10-10 all 16 focused privacy, transcription, frame and image-reading tests passed, the full Node suite passed 42/42, the Vinext production build passed, `git diff --check` passed, and focused ESLint reported zero errors with the two existing native local-preview `<img>` warnings. No real media or external provider call was used.
+
+**Consequences**
+
+Raw media now exists only while the browser or request needs it. Kitchen Katha does not persist raw media in D1 or emit it through application logging. Provider-side request handling remains governed by the configured Cloudflare service rather than D1.
+
+**Reversal path**
+
+Remove the four cleanup statements and the privacy regression test. No stored data migration is required because raw media was never added to the schema.
+
+## 2026-10-10 — Step 26 release validation keeps the owner-private gate
+
+**Context**
+
+Step 26 requires security, privacy, duplicate, failure and mobile checks across every enabled evidence source without deploying or calling paid providers.
+
+**Options**
+
+1. Treat the passing functional suite as enough for release.
+2. Validate the whole repository, responsive runtime and release gates, then keep the current owner-private deployment until reportable findings are fixed.
+3. Make the Site anonymous now and rely on the hosting platform's general limits.
+
+**Decision**
+
+Use option 2. Step 26 is complete as a validation checkpoint, but Kitchen Katha is not approved for anonymous public access or Step 27 deployment.
+
+**Rationale**
+
+The 42-test suite and production build pass. Duplicate imports remain protected by the conditional insert and partial unique index. Raw media is cleared after successful processing, is absent from D1 and request logs, and provider routes keep explicit consent and multipart limits. At a 390 × 844 browser viewport, the recipe drawer, expanded narration/image controls and centrally pulled recipe card have no horizontal overflow; invalid Instagram text is rejected by native form validation.
+
+The sealed Codex Security scan `1b8c657e-b78a-4e2a-94d8-8b01b2a50771` reviewed all 55 inventoried files and recorded one medium and two low findings: no application-level owner authorization on recipe/provider routes, JSON parsing before an application body-size guard, and raw internal recipe error messages. The external owner-private Sites gate lowers current exposure but is not enforced by this repository. A standalone `tsc --noEmit` check also fails because Cloudflare Worker ambient types are not configured outside the Vinext build, and the pulled-card overlay has no dialog role in the browser accessibility tree.
+
+**Rejected alternatives**
+
+A passing build does not prove authorization, bounded input or safe error behavior. Anonymous launch would turn the missing in-app owner boundary into a directly reachable data and provider-capacity risk.
+
+**Trade-offs**
+
+The owner can continue using the private Site, but public discovery remains deferred. The mobile check used a browser viewport rather than physical iOS or Android hardware, so file-picker and mobile-network behavior are still unverified.
+
+**Implementation effect**
+
+No runtime code, dependency, database, provider configuration or deployment changed in Step 26. The scan report is retained outside the repository at the Codex Security scan path. README release status now reflects the verified gates.
+
+**Verification**
+
+On 2026-10-10, `node --test tests/*.test.mjs` passed 42/42, `npm run build` passed, `npm run lint` completed with zero errors and the two existing local-preview `<img>` warnings, and `git diff --check` passed. `npx tsc --noEmit` failed only on unresolved `cloudflare:workers`, `Fetcher` and `D1Database` types. Local responsive inspection at 390 × 844 confirmed `scrollWidth === innerWidth` for the drawer, expanded media inputs and pulled recipe card. No paid provider request or production deployment was made.
+
+**Consequences**
+
+Before a public launch, add one shared server-side owner authorization boundary, rate-limit provider routes, reject oversized JSON before parsing, return generic unexpected errors, configure Cloudflare ambient types for the standalone check, add dialog semantics, and repeat Step 26. Step 27 remains blocked until that remediation is explicitly authorised and verified.
+
+**Reversal path**
+
+This is a release-gate decision rather than a runtime change. It is superseded only by a later decision that links verified fixes and a clean repeat scan; until then, retain the owner-private hosting gate.
+
+## 2026-10-11 — Close the Step 26 release blockers with Sites-native owner identity
+
+**Context**
+
+The owner authorised the Step 26 blocker fixes and then Step 27. The validated blockers were missing application owner authorization and provider rate limits, unbounded JSON parsing, raw internal recipe errors, missing Cloudflare ambient types and incomplete recipe-dialog naming.
+
+**Options**
+
+1. Add a separate login/session product and external rate-limit service.
+2. Enforce the existing Sites-authenticated user ID once at the top-level Worker, use the existing D1 binding for fixed-window limits, and fix the remaining boundaries locally.
+3. Continue relying only on the external owner-private access policy.
+
+**Decision**
+
+Use option 2. The Worker now fails closed outside local development unless `oai-authenticated-user-id` matches the server-side `KITCHEN_KATHA_OWNER_ID`. This guard runs before server-rendered pages, API handlers, image optimization and provider work. Instagram imports allow 20 requests per minute; narration and image reading allow five each, counted atomically in D1. JSON routes use one streaming bounded reader, recipe validation has a typed safe error, unexpected failures return generic text, official Worker types cover the standalone check, and the native detail dialog has an explicit accessible name.
+
+**Rationale**
+
+Sites already supplies a stable, Site-specific authenticated user ID, so another authentication stack would duplicate the platform boundary. Enforcing the configured owner ID in the Worker also covers `/recipes` and `/planner`, which read D1 during server rendering and would bypass API-only middleware. D1 makes rate limits consistent across Worker isolates without another service or dependency.
+
+**Rejected alternatives**
+
+Basic authentication would introduce another password. An in-memory limiter is bypassable across isolates. API-only authorization would leave server-rendered reads exposed. `Content-Length` alone would miss chunked bodies, so the JSON reader counts streamed bytes.
+
+**Trade-offs**
+
+Every provider/import request adds two small D1 statements, including an idempotent table check. This is proportionate for one owner and three bounded routes. The one-owner ID must be configured before production deployment; missing configuration returns 503. Localhost remains available for development without injecting production identity headers.
+
+**Implementation effect**
+
+Add the shared request-security and bounded-JSON helpers, one D1 fixed-window counter table created on demand, typed recipe input errors, Worker owner enforcement, route-safe error mapping, Cloudflare Worker type configuration, dialog labelling and focused security tests. Sites environment revision 2 stores the owner ID as a secret; no value is committed.
+
+**Verification**
+
+On 2026-10-11, 50/50 Node tests passed, the Vinext production build passed, `npx tsc --noEmit` passed, `git diff --check` passed and ESLint completed with zero errors and the two existing local-preview `<img>` warnings. Tests prove owner allow/deny/fail-closed behavior, fixed-window rejection/reset, streamed oversized and malformed JSON rejection, safe validation classification, bounded route usage, Worker guard ordering and dialog naming. The separate patch-review worker exhausted the account allowance, so the parent independently checked alternate page/API paths, invalid recipe IDs, local development and provider failure behavior before final verification.
+
+**Consequences**
+
+The Step 26 source blockers are closed for the current one-owner private deployment. Step 27 may commit, push and deploy this exact verified state privately. A future anonymous catalogue or multi-user product still requires resource-level public/private authorization rather than reusing this owner-only check.
+
+**Reversal path**
+
+Restore the previous private deployment version and remove the owner-ID environment entry if production identity propagation fails. Reverting the Worker guard without restoring the full external access gate is not permitted.

@@ -12,6 +12,13 @@ export const MEAL_TYPES = [
 
 export const STATUSES = ["want-to-try", "tried", "keep", "not-for-me"];
 
+export class RecipeInputError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "RecipeInputError";
+  }
+}
+
 const text = (value, max) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
 
@@ -34,10 +41,10 @@ const sourceUrl = (value) => {
   try {
     url = new URL(candidate);
   } catch {
-    throw new Error("The original recipe link must start with http:// or https://.");
+    throw new RecipeInputError("The original recipe link must start with http:// or https://.");
   }
   if (url.protocol === "http:" || url.protocol === "https:") return url.href;
-  throw new Error("The original recipe link must start with http:// or https://.");
+  throw new RecipeInputError("The original recipe link must start with http:// or https://.");
 };
 
 const stringList = (value, maxItems, maxLength) =>
@@ -50,14 +57,14 @@ const stringList = (value, maxItems, maxLength) =>
     : [];
 
 export function parseRecipeDraft(value) {
-  if (!value || typeof value !== "object") throw new Error("Recipe details are required.");
+  if (!value || typeof value !== "object") throw new RecipeInputError("Recipe details are required.");
   const title = text(value.title, 120);
   const ingredients = stringList(value.ingredients, 100, 180);
   const steps = stringList(value.steps, 60, 600);
 
-  if (!title) throw new Error("Give your recipe a name.");
-  if (!ingredients.length) throw new Error("Add at least one ingredient.");
-  if (!steps.length) throw new Error("Add at least one cooking step.");
+  if (!title) throw new RecipeInputError("Give your recipe a name.");
+  if (!ingredients.length) throw new RecipeInputError("Add at least one ingredient.");
+  if (!steps.length) throw new RecipeInputError("Add at least one cooking step.");
 
   const mealTypes = [...new Set(stringList(value.mealTypes, MEAL_TYPES.length, 30))]
     .filter((item) => MEAL_TYPES.includes(item));

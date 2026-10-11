@@ -144,10 +144,21 @@ test("wires a bounded manual narration transcript into the import request", () =
 
 test("wires bounded manual image text and unverified comments into the import request", () => {
   assert.match(journalSource, /<textarea name="instagramImageText"[^>]*maxLength=\{50000\}/);
-  assert.match(journalSource, /<textarea name="instagramComments"[^>]*maxLength=\{1500\}/);
+  assert.match(journalSource, /<textarea rows=\{4\} maxLength=\{1500\} onChange=\{updatePastedComments\}/);
+  assert.match(journalSource, /type="hidden" name="instagramComments" value=\{selectedComments/);
+  assert.match(journalSource, /Select useful comments/);
   assert.match(journalSource, /JSON\.stringify\(\{[^}]*imageText, commentText/);
   assert.match(journalSource, /does not inspect the images or use OCR credits/i);
-  assert.match(journalSource, /Comments \(unverified\).*never treated as ingredients or method steps/i);
+  assert.match(journalSource, /Comments \(unverified\).*never become ingredients or method steps/i);
+});
+
+test("labels local media inputs with the owner permission boundary", () => {
+  assert.match(journalSource, /Upload media you are allowed to use/);
+  assert.match(journalSource, /created or have permission to process/);
+  assert.match(journalSource, /upload saved narration audio\/video/i);
+  assert.match(journalSource, /Upload a saved Reel video for local thumbnails/);
+  assert.match(journalSource, /upload saved screenshots or images/i);
+  assert.match(journalSource, /never asks for Instagram passwords or downloads private posts/);
 });
 
 test("rejects invalid or oversized optional evidence before external work", async () => {
