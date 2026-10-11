@@ -7,6 +7,7 @@ interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   KITCHEN_KATHA_OWNER_ID?: string;
+  KITCHEN_KATHA_OWNER_EMAIL?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -30,7 +31,7 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const accessStatus = ownerAccessStatus(request, env.KITCHEN_KATHA_OWNER_ID);
+    const accessStatus = ownerAccessStatus(request, env.KITCHEN_KATHA_OWNER_ID, env.KITCHEN_KATHA_OWNER_EMAIL);
     if (accessStatus) {
       return Response.json(
         { error: accessStatus === 401 ? "Owner access is required." : "Owner access is not configured." },
@@ -38,7 +39,7 @@ const worker = {
       );
     }
     const limit = rateLimitFor(url.pathname);
-    if (limit && !await consumeRateLimit(env.DB, `${env.KITCHEN_KATHA_OWNER_ID}:${url.pathname}`, limit)) {
+    if (limit && !await consumeRateLimit(env.DB, `${env.KITCHEN_KATHA_OWNER_ID || env.KITCHEN_KATHA_OWNER_EMAIL}:${url.pathname}`, limit)) {
       return Response.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
     }
 

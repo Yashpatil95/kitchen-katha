@@ -11,6 +11,8 @@ test("owner access fails closed outside local development", () => {
   assert.equal(ownerAccessStatus(production, ""), 503);
   assert.equal(ownerAccessStatus(new Request("http://localhost:3000/recipes"), ""), 0);
   assert.equal(ownerAccessStatus(new Request("https://kitchen.example/recipes", { headers: { "oai-authenticated-user-id": "owner" } }), "owner"), 0);
+  assert.equal(ownerAccessStatus(new Request("https://kitchen.example/recipes", { headers: { "oai-authenticated-user-email": "Owner@Example.com" } }), "", "owner@example.com"), 0);
+  assert.equal(ownerAccessStatus(new Request("https://kitchen.example/recipes", { headers: { "oai-authenticated-user-email": "other@example.com" } }), "", "owner@example.com"), 401);
 });
 
 test("provider and importer routes have bounded per-minute limits", () => {

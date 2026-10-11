@@ -1,8 +1,11 @@
-export const ownerAccessStatus = (request, ownerId) => {
+export const ownerAccessStatus = (request, ownerId, ownerEmail) => {
   const hostname = new URL(request.url).hostname;
   if (["localhost", "127.0.0.1", "::1"].includes(hostname)) return 0;
-  if (!ownerId) return 503;
-  return request.headers.get("oai-authenticated-user-id") === ownerId ? 0 : 401;
+  if (!ownerId && !ownerEmail) return 503;
+  const authenticatedId = request.headers.get("oai-authenticated-user-id");
+  const authenticatedEmail = request.headers.get("oai-authenticated-user-email")?.toLowerCase();
+  return (ownerId && authenticatedId === ownerId)
+    || (ownerEmail && authenticatedEmail === ownerEmail.toLowerCase()) ? 0 : 401;
 };
 
 export const rateLimitFor = (pathname) => ({

@@ -1551,3 +1551,47 @@ The Step 26 source blockers are closed for the current one-owner private deploym
 **Reversal path**
 
 Restore the previous private deployment version and remove the owner-ID environment entry if production identity propagation fails. Reverting the Worker guard without restoring the full external access gate is not permitted.
+
+## 2026-10-11 — Accept the Sites identity header production actually supplies
+
+**Context**
+
+The first Step 27 deployment proved that Sites passed the authenticated owner's verified email but not `oai-authenticated-user-id` to the Worker. The ID-only guard therefore returned 401 to the legitimate owner.
+
+**Options**
+
+1. Remove the application guard and rely only on the Sites access policy.
+2. Allow any authenticated email because the current Sites policy has one member.
+3. Keep the guard fail-closed and match either a configured owner ID or configured verified email.
+
+**Decision**
+
+Use option 3. `ownerAccessStatus` accepts the request only when a supplied Sites identity equals one of the two separately configured owner identities. Local development remains unchanged.
+
+**Rationale**
+
+Supporting the two native identity headers is smaller and safer than adding authentication. Binding the email to a secret environment value preserves the owner check even if the hosting audience is widened accidentally; merely checking for any email would not.
+
+**Rejected alternatives**
+
+Removing the Worker boundary would reopen the Step 26 authorization finding. Trusting any authenticated email would couple security to the external audience setting instead of enforcing the owner invariant in code.
+
+**Trade-offs**
+
+Production now has two equivalent identity secrets to maintain. Either can authorize the same owner, which tolerates current header propagation while retaining the account-ID path if Sites supplies it later.
+
+**Implementation effect**
+
+Add `KITCHEN_KATHA_OWNER_EMAIL` to the Worker environment contract and the shared owner guard. Use the configured available identity as the rate-limit key. Store the email only as a Sites secret; do not commit it.
+
+**Verification**
+
+Focused tests cover case-insensitive email acceptance, a different-email rejection, ID acceptance, missing-config fail-closed behavior and localhost development. The complete project checks and live owner request are repeated before this replacement release is accepted.
+
+**Consequences**
+
+The owner can use the private deployment with the identity header Sites currently sends. Public or multi-user access remains unsupported.
+
+**Reversal path**
+
+Restore the previous private version only while keeping the external one-owner Sites access gate. Remove the email secret after a verified release consistently supplies and accepts the stable account ID.
