@@ -191,6 +191,11 @@ button { color: inherit; }
 .stats span { display: block; margin-top: 2px; color: #748078; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 
 .instagram-import { margin: 0 16px 28px; padding: 22px; border: 1px solid #dcc7b8; border-radius: 18px; background: #fff8ec; box-shadow: 0 12px 28px rgba(75, 53, 34, .06); }
+.import-dialog .instagram-import { margin: 0; border: 0; background: transparent; box-shadow: none; }
+.import-dialog .dialog-header { align-items: center; }
+.instagram-choice { margin: -8px 0 24px; padding: 16px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; border: 1px solid #dcc7b8; border-radius: 14px; background: #fff8ec; }
+.instagram-choice strong { font-family: Georgia, serif; font-size: 17px; }
+.instagram-choice p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
 .import-copy { display: flex; align-items: center; gap: 14px; }
 .import-copy strong { display: block; font-family: Georgia, serif; font-size: 20px; }
 .import-copy p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
@@ -447,6 +452,9 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
   .stats div { flex: 1; min-width: 0; padding: 10px 12px; }
   .toolbar { grid-template-columns: 1fr; }
   .instagram-import { margin-inline: 8px; padding: 18px; }
+  .import-dialog .instagram-import { margin-inline: 0; }
+  .instagram-choice { grid-template-columns: auto 1fr; }
+  .instagram-choice .button { grid-column: 1 / -1; }
   .import-fields { grid-template-columns: 1fr; }
   .frame-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .recipe-drawer-shell { padding: 0 8px; }

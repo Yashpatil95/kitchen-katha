@@ -79,6 +79,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
   const [importMessage, setImportMessage] = useState("");
   const [message, setMessage] = useState("");
   const formDialog = useRef<HTMLDialogElement>(null);
+  const importDialog = useRef<HTMLDialogElement>(null);
   const detailDialog = useRef<HTMLDialogElement>(null);
   const importForm = useRef<HTMLFormElement>(null);
 
@@ -141,6 +142,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           setImportDraft(result.draft);
           setMissingFields(result.missing || []);
           setMessage(result.error || "Review the imported details before saving.");
+          importDialog.current?.close();
           formDialog.current?.showModal();
           return;
         }
@@ -156,6 +158,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
       setPastedComments([]);
       setSelectedComments([]);
       setShowCaptionFallback(false);
+      importDialog.current?.close();
       detailDialog.current?.showModal();
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : "The recipe could not be imported.");
@@ -483,10 +486,12 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           </div>
         </div>
 
+        <dialog className="recipe-dialog import-dialog" ref={importDialog} aria-labelledby="instagram-import-title">
         <form className="instagram-import" ref={importForm} onSubmit={importRecipe}>
-          <div className="import-copy">
+          <div className="dialog-header import-copy">
             <span className="import-icon" aria-hidden="true">◎</span>
-            <div><strong>Add a recipe from Instagram</strong><p>Paste a public post or reel link. Kitchen Katha will extract the recipe, format it and save the finished card automatically.</p></div>
+            <div><strong id="instagram-import-title">Add a recipe from Instagram</strong><p>Paste a public post or reel link. Kitchen Katha will extract the recipe, format it and save the finished card automatically.</p></div>
+            <button className="icon-button" type="button" aria-label="Close Instagram importer" onClick={() => importDialog.current?.close()}>×</button>
           </div>
           <div className="import-fields">
             <label className="field"><span className="sr-only">Instagram recipe link</span><input name="instagramUrl" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
@@ -565,6 +570,7 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
           <small className="import-limit">Public captions import automatically. If Instagram blocks retrieval, paste its caption, narration transcript or text found in images and the same formatter will handle it.</small>
           {importMessage && <p className={/^(Transcript|Image text|Local (frame|image) previews) ready\./.test(importMessage) ? "form-error form-success" : "form-error"} role={/^(Transcript|Image text|Local (frame|image) previews) ready\./.test(importMessage) ? "status" : "alert"}>{importMessage}</p>}
         </form>
+        </dialog>
 
         <div className="toolbar">
           <label className="search-box">
@@ -684,6 +690,12 @@ export function RecipeJournal({ initialRecipes, page }: { initialRecipes: Recipe
             </div>
             <button className="icon-button" type="button" aria-label="Close" onClick={() => formDialog.current?.close()}>×</button>
           </div>
+
+          {page === "recipes" && !editing && !importDraft && <aside className="instagram-choice">
+            <span className="import-icon" aria-hidden="true">◎</span>
+            <div><strong>Adding a recipe from Instagram?</strong><p>Paste the Reel or post link and let Kitchen Katha prepare the card for you.</p></div>
+            <button className="button button-outline" type="button" onClick={() => { formDialog.current?.close(); importDialog.current?.showModal(); }}>Import link</button>
+          </aside>}
 
           <div className="form-grid">
             <label className={`field field-wide ${missingFields.includes("title") ? "field-missing" : ""}`}>Recipe name

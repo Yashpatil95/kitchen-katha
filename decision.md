@@ -1595,3 +1595,47 @@ The owner can use the private deployment with the identity header Sites currentl
 **Reversal path**
 
 Restore the previous private version only while keeping the external one-owner Sites access gate. Remove the email secret after a verified release consistently supplies and accepts the stable account ID.
+
+## 2026-10-12 — Move Instagram importing behind Add recipe
+
+**Context**
+
+The Instagram importer occupied a large permanent panel above the recipe drawer. The owner wants the drawer focused on saved cards while keeping Instagram import convenient from the Add recipe flow.
+
+**Options**
+
+1. Create a separate Instagram page and navigation item.
+2. Duplicate the importer inside the existing recipe form.
+3. Reuse the existing importer in its own dialog, opened from a clear option inside Add recipe.
+
+**Decision**
+
+Use option 3. The recipe drawer no longer displays the importer panel. On the recipes page, Add recipe presents an Import link choice that closes the manual form and opens the existing Instagram workflow in a labelled modal.
+
+**Rationale**
+
+This keeps the primary drawer quiet without introducing another route or duplicating importer state, validation and provider controls.
+
+**Rejected alternatives**
+
+A separate page adds navigation for one supporting action. Nesting or duplicating forms would create invalid markup or two implementations to maintain.
+
+**Trade-offs**
+
+Instagram import now takes one extra tap. The option is intentionally shown only in Add recipe on the recipes workspace, where the importer is mounted; the homepage retains the simple manual Add recipe form.
+
+**Implementation effect**
+
+Add one dialog reference, wrap the existing importer in that dialog, add one Add recipe choice and close the importer before opening an imported draft or finished card. No API, parser, database, provider or dependency changes.
+
+**Verification**
+
+The complete 51-test suite, production build, standalone TypeScript check and lint pass; lint retains only the two intentional local-preview image warnings. Local browser inspection confirms that the drawer no longer exposes Instagram controls, Add recipe shows Import link, and that action opens a labelled Instagram dialog.
+
+**Consequences**
+
+The drawer is reserved for finding and opening saved recipes. Instagram remains reachable in two taps without changing how recipes are extracted or saved.
+
+**Reversal path**
+
+Remove the Add recipe choice and dialog wrapper, then return the unchanged importer form above the drawer toolbar.

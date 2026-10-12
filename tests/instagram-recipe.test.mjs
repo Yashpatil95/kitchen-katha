@@ -152,6 +152,12 @@ test("wires bounded manual image text and unverified comments into the import re
   assert.match(journalSource, /Comments \(unverified\).*never become ingredients or method steps/i);
 });
 
+test("keeps Instagram importing behind the Add recipe flow", () => {
+  assert.match(journalSource, /<dialog className="recipe-dialog import-dialog"[^>]*>[\s\S]*?<form className="instagram-import"/);
+  assert.match(journalSource, /className="instagram-choice"[\s\S]*?>Import link<\/button>/);
+  assert.doesNotMatch(journalSource, /<\/div>\s*<form className="instagram-import" ref=\{importForm\}/);
+});
+
 test("labels local media inputs with the owner permission boundary", () => {
   assert.match(journalSource, /Upload media you are allowed to use/);
   assert.match(journalSource, /created or have permission to process/);
