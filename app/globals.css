@@ -240,7 +240,9 @@ button { color: inherit; }
 .search-box > span { color: #8b8c81; font-size: 24px; transform: rotate(-18deg); }
 .search-box input, .select-box select { width: 100%; height: 50px; border: 0; outline: 0; background: transparent; color: var(--ink); }
 .search-box input::placeholder { color: #8c918a; }
-.select-box { padding: 0 12px; }
+.select-box { padding: 0; overflow: hidden; }
+.select-box:hover { border-color: #b9a98f; background: #fff8ec; }
+.select-box:focus-within { border-color: var(--turmeric); box-shadow: 0 0 0 3px rgba(233, 168, 57, .17); }
 
 .filter-row { margin: 0 16px 32px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 .filter-row::-webkit-scrollbar { display: none; }
@@ -330,6 +332,22 @@ footer .brand-mark { width: 30px; height: 30px; font-size: 16px; }
 .field input, .field select { height: 45px; padding: 0 12px; }
 .field textarea { min-height: 78px; padding: 12px; resize: vertical; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--turmeric); box-shadow: 0 0 0 3px rgba(233, 168, 57, .17); }
+.field select, .select-box select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  cursor: pointer;
+  background-color: #fffaf0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23b94f36' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+  background-size: 12px 8px;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+.select-box select { height: 50px; padding-left: 16px; font-weight: 750; }
+.field select:hover, .select-box select:hover { background-color: #fff8ec; }
+.field select option, .select-box select option { background: var(--paper); color: var(--ink); font-weight: 600; }
+.field select option:checked, .select-box select option:checked { background: var(--mint); color: var(--ink); }
 .field-missing { padding: 12px; border: 2px solid #b94f35; border-radius: 13px; background: #fff3ed; }
 .field-missing::before { content: "Needs your input"; color: #8d321f; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .check-group { margin: 0; padding: 0; border: 0; }

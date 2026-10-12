@@ -1639,3 +1639,46 @@ The drawer is reserved for finding and opening saved recipes. Instagram remains 
 **Reversal path**
 
 Remove the Add recipe choice and dialog wrapper, then return the unchanged importer form above the drawer toolbar.
+
+## 2026-10-12 — Style native dropdowns as Kitchen Katha controls
+
+**Context**
+
+Dropdowns in the drawer filter, recipe form and meal planner used inconsistent browser-default presentation that did not match the paper, ink and spice visual system.
+
+**Options**
+
+1. Replace native selects with a custom JavaScript listbox component.
+2. Style the existing native selects once in shared CSS.
+
+**Decision**
+
+Use option 2. Every native select now shares the paper background, chilli chevron, stronger type, hover state and turmeric focus ring. Native option menus retain platform keyboard and screen-reader behaviour, with matching colours where the browser supports option styling.
+
+**Rationale**
+
+One shared CSS rule covers every existing and future dropdown without adding state, dependencies or duplicated components.
+
+**Rejected alternatives**
+
+A custom listbox would add substantial keyboard, focus, mobile and assistive-technology responsibilities for a purely visual request.
+
+**Trade-offs**
+
+The expanded option menu remains partly controlled by each operating system, so exact option padding and highlighting can vary between browsers. The closed control is consistent everywhere.
+
+**Implementation effect**
+
+Change only `app/globals.css`; no component, data, API, database or dependency changes.
+
+**Verification**
+
+The complete 51-test suite, production build and standalone TypeScript check pass. ESLint reports zero errors and the two existing local-preview image warnings. Browser inspection confirms the shared treatment in the drawer, Add recipe modal and planner.
+
+**Consequences**
+
+Dropdowns match Kitchen Katha while preserving native interaction and accessibility.
+
+**Reversal path**
+
+Remove the shared select appearance rules and restore padding on `.select-box`.
